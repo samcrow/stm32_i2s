@@ -1,0 +1,33 @@
+[package]
+name = "stm32_i2s"
+version = "0.1.0"
+authors = ["Sam Crow <scrow@eng.ucsd.edu>"]
+edition = "2018"
+description = "Driver for the SPI peripherals (in I2S mode) for some STM32 microcontrollers"
+license = "0BSD"
+repository = "https://github.com/samcrow/stm32_i2s"
+# Build script for examples only
+build = "build.rs"
+
+[dependencies]
+vcell = "0.1.3"
+nb = "1.0.0"
+
+# Dependencies for examples
+[dev-dependencies]
+cortex-m-rt = "0.6.13"
+nb = "1.0.0"
+
+[dev-dependencies.rtt-target]
+version = "0.3.0"
+features = ["cortex-m"]
+
+[dev-dependencies.panic-rtt-target]
+version = "0.1.1"
+features = ["cortex-m"]
+
+# Needs an unreleased version to set up the I2S clocks correctly
+[dev-dependencies.stm32f4xx-hal]
+git = "https://github.com/stm32-rs/stm32f4xx-hal"
+rev = "1f0385fec243693537750b5baee2ac7d1dbc06e7"
+features = ["stm32f412", "rt"]

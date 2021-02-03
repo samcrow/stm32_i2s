@@ -1,0 +1,6 @@
+# cargo-embed configuration file for running the examples
+[default.general]
+chip = "STM32F412VGTx"
+
+[default.rtt]
+enabled = true
