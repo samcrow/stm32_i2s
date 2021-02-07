@@ -45,7 +45,19 @@ pub enum Event {
     Error,
 }
 
-/// An SPI peripheral instance
+/// An SPI peripheral instance that can be used for I2C communication
+///
+/// This trait is meant to be implemented for a HAL-specific type that represent ownership of
+/// the SPI peripheral (and any pins required by it, although that is entirely up to the HAL).
+///
+/// # Safety
+///
+/// It is only safe to implement this trait when:
+///
+/// * The implementing type has ownership of the peripheral, preventing any other accesses to the
+///   register block.
+/// * `REGISTERS` is a pointer to that peripheral's register block and can be safely accessed for as
+///   long as ownership or a borrow of the implementing type is present.
 pub unsafe trait Instance {
     /// Pointer to the SPI register block
     const REGISTERS: *mut RegisterBlock;
