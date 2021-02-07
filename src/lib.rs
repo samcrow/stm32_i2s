@@ -1,4 +1,9 @@
-//! SPI version 1.2 (STM32F1, STM32F2, STM32F4, STM32L0, and STM32L1)
+//! This library supports I2S communication for SPI version 1.2 (on STM32F1, STM32F2, STM32F4,
+//! STM32L0, and STM32L1 microcontrollers).
+//!
+//! This library is normally used with a HAL library that provides a type that implements
+//! [Instance](crate::Instance). An [I2s](crate::I2s) object can be created around the Instance
+//! object and used for I2S.
 
 #![no_std]
 
