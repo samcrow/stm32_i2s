@@ -2,8 +2,8 @@
 
 mod data24frame32;
 
-use crate::v12x::pac::spi1::i2scfgr::{CHLEN_A, DATLEN_A};
-use crate::v12x::pac::spi1::RegisterBlock;
+use crate::pac::spi1::i2scfgr::{CHLEN_A, DATLEN_A};
+use crate::pac::spi1::RegisterBlock;
 
 pub use self::data24frame32::Data24Frame32;
 
@@ -41,8 +41,8 @@ pub trait DataFormatType {
 
 mod detail {
     use super::{DataFormatType, FrameFormat};
-    use crate::v12x::pac::spi1::i2scfgr::{CHLEN_A, DATLEN_A};
-    use crate::v12x::pac::spi1::RegisterBlock;
+    use crate::pac::spi1::i2scfgr::{CHLEN_A, DATLEN_A};
+    use crate::pac::spi1::RegisterBlock;
     /// A supported audio format (private implementation details)
     pub trait DataFormatDetail: DataFormatType {
         /// Size of audio samples in memory (DATLEN field of SPI_I2SCFGR)

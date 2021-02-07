@@ -1,9 +1,9 @@
 #[doc = "Reader of register I2SCFGR"]
-pub type R = crate::v12x::pac::R<u32, super::I2SCFGR>;
+pub type R = crate::pac::R<u32, super::I2SCFGR>;
 #[doc = "Writer for register I2SCFGR"]
-pub type W = crate::v12x::pac::W<u32, super::I2SCFGR>;
+pub type W = crate::pac::W<u32, super::I2SCFGR>;
 #[doc = "Register I2SCFGR `reset()`'s with value 0"]
-impl crate::v12x::pac::ResetValue for super::I2SCFGR {
+impl crate::pac::ResetValue for super::I2SCFGR {
     type Type = u32;
     #[inline(always)]
     fn reset_value() -> Self::Type {
@@ -25,7 +25,7 @@ impl From<I2SMOD_A> for bool {
     }
 }
 #[doc = "Reader of field `I2SMOD`"]
-pub type I2SMOD_R = crate::v12x::pac::R<bool, I2SMOD_A>;
+pub type I2SMOD_R = crate::pac::R<bool, I2SMOD_A>;
 impl I2SMOD_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -100,7 +100,7 @@ impl From<I2SE_A> for bool {
     }
 }
 #[doc = "Reader of field `I2SE`"]
-pub type I2SE_R = crate::v12x::pac::R<bool, I2SE_A>;
+pub type I2SE_R = crate::pac::R<bool, I2SE_A>;
 impl I2SE_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -180,7 +180,7 @@ impl From<I2SCFG_A> for u8 {
     }
 }
 #[doc = "Reader of field `I2SCFG`"]
-pub type I2SCFG_R = crate::v12x::pac::R<u8, I2SCFG_A>;
+pub type I2SCFG_R = crate::pac::R<u8, I2SCFG_A>;
 impl I2SCFG_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -268,7 +268,7 @@ impl From<PCMSYNC_A> for bool {
     }
 }
 #[doc = "Reader of field `PCMSYNC`"]
-pub type PCMSYNC_R = crate::v12x::pac::R<bool, PCMSYNC_A>;
+pub type PCMSYNC_R = crate::pac::R<bool, PCMSYNC_A>;
 impl PCMSYNC_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -348,7 +348,7 @@ impl From<I2SSTD_A> for u8 {
     }
 }
 #[doc = "Reader of field `I2SSTD`"]
-pub type I2SSTD_R = crate::v12x::pac::R<u8, I2SSTD_A>;
+pub type I2SSTD_R = crate::pac::R<u8, I2SSTD_A>;
 impl I2SSTD_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -436,7 +436,7 @@ impl From<CKPOL_A> for bool {
     }
 }
 #[doc = "Reader of field `CKPOL`"]
-pub type CKPOL_R = crate::v12x::pac::R<bool, CKPOL_A>;
+pub type CKPOL_R = crate::pac::R<bool, CKPOL_A>;
 impl CKPOL_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -514,12 +514,12 @@ impl From<DATLEN_A> for u8 {
     }
 }
 #[doc = "Reader of field `DATLEN`"]
-pub type DATLEN_R = crate::v12x::pac::R<u8, DATLEN_A>;
+pub type DATLEN_R = crate::pac::R<u8, DATLEN_A>;
 impl DATLEN_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
-    pub fn variant(&self) -> crate::v12x::pac::Variant<u8, DATLEN_A> {
-        use crate::v12x::pac::Variant::*;
+    pub fn variant(&self) -> crate::pac::Variant<u8, DATLEN_A> {
+        use crate::pac::Variant::*;
         match self.bits {
             0 => Val(DATLEN_A::SIXTEENBIT),
             1 => Val(DATLEN_A::TWENTYFOURBIT),
@@ -590,7 +590,7 @@ impl From<CHLEN_A> for bool {
     }
 }
 #[doc = "Reader of field `CHLEN`"]
-pub type CHLEN_R = crate::v12x::pac::R<bool, CHLEN_A>;
+pub type CHLEN_R = crate::pac::R<bool, CHLEN_A>;
 impl CHLEN_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]

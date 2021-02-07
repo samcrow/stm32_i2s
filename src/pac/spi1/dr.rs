@@ -1,9 +1,9 @@
 #[doc = "Reader of register DR"]
-pub type R = crate::v12x::pac::R<u32, super::DR>;
+pub type R = crate::pac::R<u32, super::DR>;
 #[doc = "Writer for register DR"]
-pub type W = crate::v12x::pac::W<u32, super::DR>;
+pub type W = crate::pac::W<u32, super::DR>;
 #[doc = "Register DR `reset()`'s with value 0"]
-impl crate::v12x::pac::ResetValue for super::DR {
+impl crate::pac::ResetValue for super::DR {
     type Type = u32;
     #[inline(always)]
     fn reset_value() -> Self::Type {
@@ -11,7 +11,7 @@ impl crate::v12x::pac::ResetValue for super::DR {
     }
 }
 #[doc = "Reader of field `DR`"]
-pub type DR_R = crate::v12x::pac::R<u16, u16>;
+pub type DR_R = crate::pac::R<u16, u16>;
 #[doc = "Write proxy for field `DR`"]
 pub struct DR_W<'a> {
     w: &'a mut W,

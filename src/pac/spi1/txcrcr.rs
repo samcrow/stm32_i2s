@@ -1,7 +1,7 @@
 #[doc = "Reader of register TXCRCR"]
-pub type R = crate::v12x::pac::R<u32, super::TXCRCR>;
+pub type R = crate::pac::R<u32, super::TXCRCR>;
 #[doc = "Reader of field `TxCRC`"]
-pub type TXCRC_R = crate::v12x::pac::R<u16, u16>;
+pub type TXCRC_R = crate::pac::R<u16, u16>;
 impl R {
     #[doc = "Bits 0:15 - Tx CRC register"]
     #[inline(always)]

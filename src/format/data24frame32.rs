@@ -2,8 +2,8 @@
 
 use super::detail::DataFormatDetail;
 use super::{read_two_steps, write_two_steps, DataFormat, DataFormatType, FrameFormat};
-use crate::v12x::pac::spi1::i2scfgr::{CHLEN_A, DATLEN_A};
-use crate::v12x::pac::spi1::RegisterBlock;
+use crate::pac::spi1::i2scfgr::{CHLEN_A, DATLEN_A};
+use crate::pac::spi1::RegisterBlock;
 
 /// 32 bits transferred for each audio sample, represented in memory with 24 bits per sample
 ///

@@ -21,7 +21,7 @@ extern crate cortex_m_rt;
 extern crate nb;
 extern crate panic_rtt_target;
 extern crate rtt_target;
-extern crate stm32_i2s;
+extern crate stm32_i2s_v12x;
 extern crate stm32f4xx_hal;
 
 use stm32f4xx_hal::hal::prelude::*;
@@ -29,9 +29,8 @@ use stm32f4xx_hal::pac::{CorePeripherals, Peripherals};
 use stm32f4xx_hal::prelude::*;
 use stm32f4xx_hal::timer::Timer;
 
-use stm32_i2s::v12x::format::{Data16Frame32, FrameFormat};
-use stm32_i2s::v12x::{I2s, Instance, MasterConfig, RegisterBlock};
-use stm32_i2s::Polarity;
+use stm32_i2s_v12x::format::{Data16Frame32, FrameFormat};
+use stm32_i2s_v12x::{I2s, Instance, MasterConfig, Polarity, RegisterBlock};
 
 /// 16-bit samples to transmit
 const TEST_SAMPLES: [i16; 12] = [

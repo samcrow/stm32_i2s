@@ -1,9 +1,9 @@
 #[doc = "Reader of register CR2"]
-pub type R = crate::v12x::pac::R<u32, super::CR2>;
+pub type R = crate::pac::R<u32, super::CR2>;
 #[doc = "Writer for register CR2"]
-pub type W = crate::v12x::pac::W<u32, super::CR2>;
+pub type W = crate::pac::W<u32, super::CR2>;
 #[doc = "Register CR2 `reset()`'s with value 0"]
-impl crate::v12x::pac::ResetValue for super::CR2 {
+impl crate::pac::ResetValue for super::CR2 {
     type Type = u32;
     #[inline(always)]
     fn reset_value() -> Self::Type {
@@ -25,7 +25,7 @@ impl From<TXEIE_A> for bool {
     }
 }
 #[doc = "Reader of field `TXEIE`"]
-pub type TXEIE_R = crate::v12x::pac::R<bool, TXEIE_A>;
+pub type TXEIE_R = crate::pac::R<bool, TXEIE_A>;
 impl TXEIE_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -100,7 +100,7 @@ impl From<RXNEIE_A> for bool {
     }
 }
 #[doc = "Reader of field `RXNEIE`"]
-pub type RXNEIE_R = crate::v12x::pac::R<bool, RXNEIE_A>;
+pub type RXNEIE_R = crate::pac::R<bool, RXNEIE_A>;
 impl RXNEIE_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -175,7 +175,7 @@ impl From<ERRIE_A> for bool {
     }
 }
 #[doc = "Reader of field `ERRIE`"]
-pub type ERRIE_R = crate::v12x::pac::R<bool, ERRIE_A>;
+pub type ERRIE_R = crate::pac::R<bool, ERRIE_A>;
 impl ERRIE_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -250,7 +250,7 @@ impl From<FRF_A> for bool {
     }
 }
 #[doc = "Reader of field `FRF`"]
-pub type FRF_R = crate::v12x::pac::R<bool, FRF_A>;
+pub type FRF_R = crate::pac::R<bool, FRF_A>;
 impl FRF_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -325,7 +325,7 @@ impl From<SSOE_A> for bool {
     }
 }
 #[doc = "Reader of field `SSOE`"]
-pub type SSOE_R = crate::v12x::pac::R<bool, SSOE_A>;
+pub type SSOE_R = crate::pac::R<bool, SSOE_A>;
 impl SSOE_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -400,7 +400,7 @@ impl From<TXDMAEN_A> for bool {
     }
 }
 #[doc = "Reader of field `TXDMAEN`"]
-pub type TXDMAEN_R = crate::v12x::pac::R<bool, TXDMAEN_A>;
+pub type TXDMAEN_R = crate::pac::R<bool, TXDMAEN_A>;
 impl TXDMAEN_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -475,7 +475,7 @@ impl From<RXDMAEN_A> for bool {
     }
 }
 #[doc = "Reader of field `RXDMAEN`"]
-pub type RXDMAEN_R = crate::v12x::pac::R<bool, RXDMAEN_A>;
+pub type RXDMAEN_R = crate::pac::R<bool, RXDMAEN_A>;
 impl RXDMAEN_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]

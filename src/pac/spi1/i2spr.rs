@@ -1,9 +1,9 @@
 #[doc = "Reader of register I2SPR"]
-pub type R = crate::v12x::pac::R<u32, super::I2SPR>;
+pub type R = crate::pac::R<u32, super::I2SPR>;
 #[doc = "Writer for register I2SPR"]
-pub type W = crate::v12x::pac::W<u32, super::I2SPR>;
+pub type W = crate::pac::W<u32, super::I2SPR>;
 #[doc = "Register I2SPR `reset()`'s with value 0x0a"]
-impl crate::v12x::pac::ResetValue for super::I2SPR {
+impl crate::pac::ResetValue for super::I2SPR {
     type Type = u32;
     #[inline(always)]
     fn reset_value() -> Self::Type {
@@ -25,7 +25,7 @@ impl From<MCKOE_A> for bool {
     }
 }
 #[doc = "Reader of field `MCKOE`"]
-pub type MCKOE_R = crate::v12x::pac::R<bool, MCKOE_A>;
+pub type MCKOE_R = crate::pac::R<bool, MCKOE_A>;
 impl MCKOE_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -100,7 +100,7 @@ impl From<ODD_A> for bool {
     }
 }
 #[doc = "Reader of field `ODD`"]
-pub type ODD_R = crate::v12x::pac::R<bool, ODD_A>;
+pub type ODD_R = crate::pac::R<bool, ODD_A>;
 impl ODD_R {
     #[doc = r"Get enumerated values variant"]
     #[inline(always)]
@@ -161,7 +161,7 @@ impl<'a> ODD_W<'a> {
     }
 }
 #[doc = "Reader of field `I2SDIV`"]
-pub type I2SDIV_R = crate::v12x::pac::R<u8, u8>;
+pub type I2SDIV_R = crate::pac::R<u8, u8>;
 #[doc = "Write proxy for field `I2SDIV`"]
 pub struct I2SDIV_W<'a> {
     w: &'a mut W,
