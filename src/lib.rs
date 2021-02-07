@@ -386,6 +386,27 @@ where
         }
     }
 
+    /// Writes a 16-bit value to the data register
+    ///
+    /// Like `transmit`, this function returns `Err(nb::Error::WouldBlock)` if the data register
+    /// contains a value that has not been transmitted yet.
+    ///
+    /// Unlike `transmit`, this function never blocks because it performs only one 16-bit write.
+    /// If the data format contains 24 or 32 bits, the calling code is responsible for dividing
+    /// each sample into two chunks and calling this function twice. Details about this can be found
+    /// in the microcontroller reference manual.
+    pub fn write_data_register(&mut self, value: u16) -> nb::Result<(), Infallible> {
+        let registers = self.registers();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            registers.dr.write(|w| w.dr().bits(value));
+            Ok(())
+        } else {
+            // Can't write yet
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
     /// Checks for an error and clears the error flag
     pub fn take_error(&mut self) -> Result<(), TransmitError> {
         let spi = self.registers();
@@ -504,10 +525,31 @@ where
     }
 
     /// Receives multiple samples, blocking until all samples have been received
+    ///
+    /// Samples from the left and right channels will be interleaved.
     pub fn receive_blocking(&mut self, samples: &mut [F::Sample]) {
         for sample_in_buffer in samples {
             let (sample, _channel) = nb::block!(self.receive()).unwrap();
             *sample_in_buffer = sample;
+        }
+    }
+
+    /// Reads a 16-bit value from the data register, returning the value and its associated channel
+    ///
+    /// Like `receive`, this function returns `Err(nb::Error::WouldBlock)` if the data register
+    /// does not contain a value.
+    ///
+    /// Unlike `receive`, this function never blocks because it performs only one 16-bit read.
+    /// If the data format contains 24 or 32 bits, the calling code is responsible for calling this
+    /// function twice and combining the two returned chunks into a sample. Details about this can
+    /// be found in the microcontroller reference manual.
+    pub fn read_data_register(&mut self) -> nb::Result<(u16, Channel), Infallible> {
+        match self.sample_ready() {
+            Some(channel) => {
+                let sample = self.registers().dr.read().dr().bits();
+                Ok((sample, channel))
+            }
+            None => Err(nb::Error::WouldBlock),
         }
     }
 
