@@ -12,7 +12,7 @@ mod pac;
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-pub use self::config::{MasterConfig, SlaveConfig};
+pub use self::config::{MasterConfig, SlaveConfig, MasterClock};
 pub use self::pac::spi1::RegisterBlock;
 use crate::format::{DataFormat, FrameFormat, FrameSync};
 use crate::pac::spi1::i2scfgr::I2SCFG_A;
@@ -66,7 +66,7 @@ pub unsafe trait Instance {
 /// # Example
 ///
 /// ```no_run
-/// # use stm32_i2s::{I2s, Instance, MasterConfig, InitMode, Polarity};
+/// # use stm32_i2s::{I2s, Instance, MasterConfig, InitMode, Polarity, MasterClock};
 /// # use stm32_i2s::format::{Data16Frame16, FrameFormat};
 /// fn use_i2s<I>(i2s: I2s<I, InitMode>) where I: Instance {
 ///     let config = MasterConfig::with_division(
@@ -74,7 +74,7 @@ pub unsafe trait Instance {
 ///         Data16Frame16,
 ///         FrameFormat::PhilipsI2s,
 ///         Polarity::IdleHigh,
-///         false
+///         MasterClock::Disble,
 ///     );
 ///     let mut i2s_configured = i2s.configure_master_receive(config);
 ///     let mut samples: [i16; 64] = [0; 64];
@@ -105,6 +105,7 @@ mod sealed {
     pub trait Sealed {}
 }
 use self::sealed::Sealed;
+
 /// A mode in which the I2S is configured and may be enabled (transmit or receive)
 pub trait ActiveMode: Sealed {}
 impl<F> Sealed for TransmitMode<F> {}
@@ -283,7 +284,9 @@ where
         });
     }
 
-    fn configure_clock_division(&self, division: u16, master_clock: bool) {
+    fn configure_clock_division(&self, division: u16, master_clock: MasterClock) {
+        let master_clock_enable = matches!(master_clock, MasterClock::Enable);
+
         let spi = self.registers();
         let i2sdiv = division / 2;
         let odd = division % 2;
@@ -294,7 +297,7 @@ where
                 .odd()
                 .bit(odd != 0)
                 .mckoe()
-                .bit(master_clock)
+                .bit(master_clock_enable)
         });
     }
 }

@@ -32,7 +32,7 @@ use stm32f4xx_hal::prelude::*;
 use stm32f4xx_hal::timer::Timer;
 
 use stm32_i2s_v12x::format::{Data16Frame16, FrameFormat};
-use stm32_i2s_v12x::{I2s, Instance, MasterConfig, Polarity, RegisterBlock};
+use stm32_i2s_v12x::{I2s, Instance, MasterConfig, Polarity, RegisterBlock, MasterClock};
 
 /// 16-bit samples to transmit
 const TEST_SAMPLES: [i16; 12] = [
@@ -99,7 +99,7 @@ fn main() -> ! {
                 Data16Frame16,
                 FrameFormat::PhilipsI2s,
                 Polarity::IdleLow,
-                true,
+                MasterClock::Enable,
             );
             let mut configured_i2s = i2s.configure_master_transmit(config);
 

@@ -10,6 +10,15 @@ use crate::Polarity;
 /// Allowed values for I2S clock division
 const DIVISION_RANGE: Range<u16> = 4..512;
 
+/// Master clock enable flag
+#[derive(Debug, Clone)]
+pub enum MasterClock {
+    /// Master clock output enabled
+    Enable,
+    /// Master clock output disabled
+    Disable,
+}
+
 /// Configuration for master mode
 #[derive(Debug, Clone)]
 pub struct MasterConfig<F> {
@@ -27,7 +36,7 @@ pub struct MasterConfig<F> {
     /// The clock polarity
     pub(crate) polarity: Polarity,
     /// Enable master clock output (256 times the frequency of the word select output)
-    pub(crate) master_clock: bool,
+    pub(crate) master_clock: MasterClock,
 }
 
 impl<F> MasterConfig<F>
@@ -45,7 +54,7 @@ where
         data_format: F,
         frame_format: FrameFormat,
         polarity: Polarity,
-        master_clock: bool,
+        master_clock: MasterClock,
     ) -> Self {
         if !DIVISION_RANGE.contains(&division) {
             panic!(
@@ -78,14 +87,14 @@ where
         data_format: F,
         frame_format: FrameFormat,
         polarity: Polarity,
-        master_clock: bool,
+        master_clock: MasterClock,
     ) -> Self {
         let bits_per_sample: u32 = match F::CHLEN {
             CHLEN_A::SIXTEENBIT => 16,
             CHLEN_A::THIRTYTWOBIT => 32,
         };
         // Extra division when master clock output is enabled
-        let master_clock_division: u32 = if master_clock {
+        let master_clock_division: u32 = if matches!(master_clock, MasterClock::Enable) {
             match F::CHLEN {
                 CHLEN_A::SIXTEENBIT => 8,
                 CHLEN_A::THIRTYTWOBIT => 4,
