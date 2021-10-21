@@ -30,7 +30,7 @@ use stm32f4xx_hal::prelude::*;
 use stm32f4xx_hal::timer::Timer;
 
 use stm32_i2s_v12x::format::{Data32Frame32, FrameFormat};
-use stm32_i2s_v12x::{I2s, Instance, MasterConfig, Polarity, RegisterBlock, MasterClock};
+use stm32_i2s_v12x::{I2s, Instance, MasterClock, MasterConfig, Polarity, RegisterBlock};
 
 /// 16-bit samples to transmit
 const TEST_SAMPLES: [i32; 12] = [
