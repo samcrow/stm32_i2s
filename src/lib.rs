@@ -7,17 +7,19 @@
 
 #![no_std]
 
+extern crate ehal1;
 extern crate nb;
 extern crate vcell;
 
 mod config;
+mod ehal;
 pub mod format;
 mod pac;
 
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-pub use self::config::{MasterConfig, SlaveConfig, MasterClock};
+pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
 pub use self::pac::spi1::RegisterBlock;
 use crate::format::{DataFormat, FrameFormat, FrameSync};
 use crate::pac::spi1::i2scfgr::I2SCFG_A;
@@ -355,6 +357,16 @@ where
         } else {
             // Not ready, channel not valid
             None
+        }
+    }
+
+    /// Blocks until the peripheral is ready to transmit a frame, and returns the channel that will
+    /// be transmitted next
+    fn block_until_ready_to_transmit(&self) -> Channel {
+        loop {
+            if let Some(channel) = self.ready_to_transmit() {
+                break channel;
+            }
         }
     }
 
