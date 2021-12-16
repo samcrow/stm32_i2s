@@ -8,8 +8,6 @@ license = "0BSD"
 repository = "https://github.com/samcrow/stm32_i2s"
 keywords = ["i2s", "audio", "embedded"]
 categories = ["embedded", "hardware-support", "multimedia::audio", "no-std"]
-# Build script for examples only
-build = "build.rs"
 
 [dependencies]
 vcell = "0.1.3"
