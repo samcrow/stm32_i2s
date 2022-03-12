@@ -17,7 +17,7 @@ mod pac;
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-pub use self::config::{MasterConfig, SlaveConfig, MasterClock};
+pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
 pub use self::pac::spi1::RegisterBlock;
 use crate::format::{DataFormat, FrameFormat, FrameSync};
 use crate::pac::spi1::i2scfgr::I2SCFG_A;
@@ -66,6 +66,13 @@ pub enum Event {
 pub unsafe trait Instance {
     /// Pointer to the SPI register block
     const REGISTERS: *mut RegisterBlock;
+}
+
+/// A dual I2S instance composed by a SPI in I2S mode and a I2SEXT peripheral
+///
+/// TODO!
+pub unsafe trait DualInstance {
+    const REGISTERS: (*mut RegisterBlock, *mut RegisterBlock);
 }
 
 /// Interface to an SPI peripheral in I2S mode
@@ -631,6 +638,890 @@ where
             Event::ReceiveNotEmpty => w.rxneie().masked(),
             Event::Error => w.errie().masked(),
         })
+    }
+}
+
+//Notes:
+//  - I is a tuple (SPI, I2SEXT)
+//  - MODES is a tuple (SPIMODE, I2SMODE)
+pub struct DualI2s<I, MODES> {
+    instance: I,
+    frame_formats: (FrameFormat, FrameFormat),
+    _modes: PhantomData<MODES>,
+}
+
+impl<I, MODES> DualI2s<I, MODES>
+where
+    I: DualInstance,
+{
+    /// Returns references to the enclosed peripheral instances
+    pub fn instance(&self) -> &I {
+        &self.instance
+    }
+    /// Returns mutable references to the enclosed peripheral instances
+    pub fn instance_mut(&mut self) -> &mut I {
+        &mut self.instance
+    }
+
+    /// Returns references to the main I2S register blocks
+    fn registers_main(&self) -> &RegisterBlock {
+        unsafe { &*I::REGISTERS.0 }
+    }
+
+    /// Returns references to the extended I2S register blocks
+    fn registers_ext(&self) -> &RegisterBlock {
+        unsafe { &*I::REGISTERS.1 }
+    }
+
+    /// Enables the main I2S peripheral
+    fn common_enable_main(&self) {
+        self.registers_main()
+            .i2scfgr
+            .modify(|_, w| w.i2se().enabled());
+    }
+
+    /// Enables the extended I2S peripheral
+    fn common_enable_ext(&self) {
+        self.registers_ext()
+            .i2scfgr
+            .modify(|_, w| w.i2se().enabled());
+    }
+
+    /// Disables the main I2S peripheral
+    fn common_disable_main(&self) {
+        self.registers_main()
+            .i2scfgr
+            .modify(|_, w| w.i2se().disabled());
+    }
+
+    /// Disables the extended I2S peripheral
+    fn common_disable_ext(&self) {
+        self.registers_ext()
+            .i2scfgr
+            .modify(|_, w| w.i2se().disabled());
+    }
+
+    /// Resets the values of all control and configuration registers
+    fn reset_registers_main(&self) {
+        let registers = self.registers_main();
+        registers.cr1.reset();
+        registers.cr2.reset();
+        registers.i2scfgr.reset();
+        registers.i2spr.reset();
+    }
+
+    /// Resets the values of all control and configuration registers
+    fn reset_registers_ext(&self) {
+        let registers = self.registers_ext();
+        registers.cr1.reset();
+        registers.cr2.reset();
+        registers.i2scfgr.reset();
+        registers.i2spr.reset();
+    }
+}
+
+impl<I> DualI2s<I, (InitMode, InitMode)>
+where
+    I: DualInstance,
+{
+    /// Creates a wrapper around SPI and I2SEXT peripherals, but does not do any configuration
+    pub fn new(instance: I) -> Self {
+        DualI2s {
+            instance,
+            // Default frame format (the real value will be filled in during configuration)
+            frame_formats: (FrameFormat::PhilipsI2s, FrameFormat::PhilipsI2s),
+            _modes: PhantomData,
+        }
+    }
+}
+
+// Main part configuration
+impl<I, ANYMODE> DualI2s<I, (InitMode, ANYMODE)>
+where
+    I: DualInstance,
+{
+    /// Configures the main peripheral in master transmit mode
+    pub fn configure_main_master_transmit<F>(
+        self,
+        config: MasterConfig<F>,
+    ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
+    where
+        F: DataFormat,
+    {
+        self.configure_main_clock_division(config.division, config.master_clock);
+        self.configure_main_i2s(
+            I2SCFG_A::MASTERTX,
+            config.data_format,
+            &config.frame_format,
+            config.polarity,
+        );
+        DualI2s {
+            instance: self.instance,
+            frame_formats: (config.frame_format, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+
+    /// Configures the main peripheral in master receive mode
+    pub fn configure_main_master_receive<F>(
+        self,
+        config: MasterConfig<F>,
+    ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
+    where
+        F: DataFormat,
+    {
+        self.configure_main_clock_division(config.division, config.master_clock);
+        self.configure_main_i2s(
+            I2SCFG_A::MASTERRX,
+            config.data_format,
+            &config.frame_format,
+            config.polarity,
+        );
+        DualI2s {
+            instance: self.instance,
+            frame_formats: (config.frame_format, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+
+    /// Configures the SPI peripheral in slave transmit mode
+    pub fn configure_main_slave_transmit<F>(
+        self,
+        config: SlaveConfig<F>,
+    ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
+    where
+        F: DataFormat,
+    {
+        self.configure_main_i2s(
+            I2SCFG_A::SLAVETX,
+            config.data_format,
+            &config.frame_format,
+            config.polarity,
+        );
+        DualI2s {
+            instance: self.instance,
+            frame_formats: (config.frame_format, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+
+    /// Configures the SPI peripheral in slave receive mode
+    pub fn configure_main_slave_receive<F>(
+        self,
+        config: SlaveConfig<F>,
+    ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
+    where
+        F: DataFormat,
+    {
+        self.configure_main_i2s(
+            I2SCFG_A::SLAVERX,
+            config.data_format,
+            &config.frame_format,
+            config.polarity,
+        );
+        DualI2s {
+            instance: self.instance,
+            frame_formats: (config.frame_format, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+
+    /// Sets the SPI peripheral to I2S mode and applies other settings to the SPI_CR2 register
+    ///
+    /// This does not modify any other registers, so it preserves interrupts and DMA setup.
+    fn configure_main_i2s<F>(
+        &self,
+        mode: I2SCFG_A,
+        _data_format: F,
+        frame_format: &FrameFormat,
+        polarity: Polarity,
+    ) where
+        F: DataFormat,
+    {
+        use self::pac::spi1::i2scfgr::{CKPOL_A, I2SSTD_A, PCMSYNC_A};
+        let polarity = match polarity {
+            Polarity::IdleLow => CKPOL_A::IDLELOW,
+            Polarity::IdleHigh => CKPOL_A::IDLEHIGH,
+        };
+        let (i2sstd, pcmsync) = match frame_format {
+            FrameFormat::PhilipsI2s => (I2SSTD_A::PHILIPS, PCMSYNC_A::SHORT),
+            FrameFormat::MsbJustified => (I2SSTD_A::MSB, PCMSYNC_A::SHORT),
+            FrameFormat::LsbJustified => (I2SSTD_A::LSB, PCMSYNC_A::SHORT),
+            FrameFormat::Pcm(FrameSync::Short) => (I2SSTD_A::PCM, PCMSYNC_A::SHORT),
+            FrameFormat::Pcm(FrameSync::Long) => (I2SSTD_A::PCM, PCMSYNC_A::LONG),
+        };
+        self.registers_main().i2scfgr.write(|w| {
+            // Initially disabled (enable to actually start transferring data)
+            w.i2se().disabled();
+            w.i2smod().i2smode();
+            w.i2scfg().variant(mode);
+            w.pcmsync().variant(pcmsync);
+            w.i2sstd().variant(i2sstd);
+            w.ckpol().variant(polarity);
+            w.datlen().variant(F::DATLEN);
+            w.chlen().variant(F::CHLEN)
+        });
+    }
+
+    fn configure_main_clock_division(&self, division: u16, master_clock: MasterClock) {
+        let master_clock_enable = matches!(master_clock, MasterClock::Enable);
+
+        let spi = self.registers_main();
+        let i2sdiv = division / 2;
+        let odd = division % 2;
+        assert!(i2sdiv >= 2 && i2sdiv <= 255);
+        spi.i2spr.write(|w| unsafe {
+            w.i2sdiv().bits(i2sdiv as u8);
+            w.odd().bit(odd != 0);
+            w.mckoe().bit(master_clock_enable)
+        });
+    }
+}
+
+// extended part configuration
+impl<I, ANYMODE> DualI2s<I, (ANYMODE, InitMode)>
+where
+    I: DualInstance,
+{
+    /// Configures the SPI peripheral in slave transmit mode
+    pub fn configure_ext_slave_transmit<F>(
+        self,
+        config: SlaveConfig<F>,
+    ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
+    where
+        F: DataFormat,
+    {
+        self.configure_ext_i2s(
+            I2SCFG_A::SLAVETX,
+            config.data_format,
+            &config.frame_format,
+            config.polarity,
+        );
+        DualI2s {
+            instance: self.instance,
+            frame_formats: (config.frame_format, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+
+    /// Configures the SPI peripheral in slave receive mode
+    pub fn configure_ext_slave_receive<F>(
+        self,
+        config: SlaveConfig<F>,
+    ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
+    where
+        F: DataFormat,
+    {
+        self.configure_ext_i2s(
+            I2SCFG_A::SLAVERX,
+            config.data_format,
+            &config.frame_format,
+            config.polarity,
+        );
+        DualI2s {
+            instance: self.instance,
+            frame_formats: (config.frame_format, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+
+    /// Sets the SPI peripheral to I2S mode and applies other settings to the SPI_CR2 register
+    ///
+    /// This does not modify any other registers, so it preserves interrupts and DMA setup.
+    fn configure_ext_i2s<F>(
+        &self,
+        mode: I2SCFG_A,
+        _data_format: F,
+        frame_format: &FrameFormat,
+        polarity: Polarity,
+    ) where
+        F: DataFormat,
+    {
+        use self::pac::spi1::i2scfgr::{CKPOL_A, I2SSTD_A, PCMSYNC_A};
+        let polarity = match polarity {
+            Polarity::IdleLow => CKPOL_A::IDLELOW,
+            Polarity::IdleHigh => CKPOL_A::IDLEHIGH,
+        };
+        let (i2sstd, pcmsync) = match frame_format {
+            FrameFormat::PhilipsI2s => (I2SSTD_A::PHILIPS, PCMSYNC_A::SHORT),
+            FrameFormat::MsbJustified => (I2SSTD_A::MSB, PCMSYNC_A::SHORT),
+            FrameFormat::LsbJustified => (I2SSTD_A::LSB, PCMSYNC_A::SHORT),
+            FrameFormat::Pcm(FrameSync::Short) => (I2SSTD_A::PCM, PCMSYNC_A::SHORT),
+            FrameFormat::Pcm(FrameSync::Long) => (I2SSTD_A::PCM, PCMSYNC_A::LONG),
+        };
+        self.registers_ext().i2scfgr.write(|w| {
+            // Initially disabled (enable to actually start transferring data)
+            w.i2se().disabled();
+            w.i2smod().i2smode();
+            w.i2scfg().variant(mode);
+            w.pcmsync().variant(pcmsync);
+            w.i2sstd().variant(i2sstd);
+            w.ckpol().variant(polarity);
+            w.datlen().variant(F::DATLEN);
+            w.chlen().variant(F::CHLEN)
+        });
+    }
+
+    fn configure_ext_clock_division(&self, division: u16, master_clock: MasterClock) {
+        let master_clock_enable = matches!(master_clock, MasterClock::Enable);
+
+        let spi = self.registers_ext();
+        let i2sdiv = division / 2;
+        let odd = division % 2;
+        assert!(i2sdiv >= 2 && i2sdiv <= 255);
+        spi.i2spr.write(|w| unsafe {
+            w.i2sdiv().bits(i2sdiv as u8);
+            w.odd().bit(odd != 0);
+            w.mckoe().bit(master_clock_enable)
+        });
+    }
+}
+
+// main half transmit
+impl<I, ANYMODE, F> DualI2s<I, (TransmitMode<F>, ANYMODE)>
+where
+    I: DualInstance,
+    F: DataFormat,
+{
+    /// Returns the channel on which the next sample will be transmitted, or None if a previous
+    /// sample is still in the process of being transmitted
+    pub fn main_ready_to_transmit(&self) -> Option<Channel> {
+        use self::pac::spi1::sr::CHSIDE_A;
+        let registers = self.registers_main();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            let channel = match sr.chside().variant() {
+                CHSIDE_A::LEFT => Channel::Left,
+                CHSIDE_A::RIGHT => Channel::Right,
+            };
+            Some(channel)
+        } else {
+            // Not ready, channel not valid
+            None
+        }
+    }
+
+    /// Writes a sample into the transmit buffer
+    ///
+    /// The I2S peripheral should normally be enabled before this function is called. However,
+    /// if the data format contains 16 bits, this function can be called once before enabling the
+    /// I2S to load the first sample.
+    ///
+    /// If the data format contains 24 or 32 bits, the sample will be split into two write
+    /// operations. This function will block until the second write has completed.
+    ///
+    pub fn main_transmit(&mut self, sample: F::Sample) -> nb::Result<(), Infallible> {
+        let registers = self.registers_main();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            F::write_sample(&self.frame_formats.0, &registers, sample);
+            Ok(())
+        } else {
+            // Can't write yet
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Transmits multiple samples, blocking until all samples have been transmitted
+    pub fn main_transmit_blocking(&mut self, samples: &[F::Sample]) {
+        for sample in samples {
+            nb::block!(self.main_transmit(*sample)).unwrap();
+        }
+    }
+
+    /// Writes a 16-bit value to the data register
+    ///
+    /// Like `transmit`, this function returns `Err(nb::Error::WouldBlock)` if the data register
+    /// contains a value that has not been transmitted yet.
+    ///
+    /// Unlike `transmit`, this function never blocks because it performs only one 16-bit write.
+    /// If the data format contains 24 or 32 bits, the calling code is responsible for dividing
+    /// each sample into two chunks and calling this function twice. Details about this can be found
+    /// in the microcontroller reference manual.
+    pub fn main_write_data_register(&mut self, value: u16) -> nb::Result<(), Infallible> {
+        let registers = self.registers_main();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            registers.dr.write(|w| w.dr().bits(value));
+            Ok(())
+        } else {
+            // Can't write yet
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Checks for an error and clears the error flag
+    pub fn main_take_error(&mut self) -> Result<(), TransmitError> {
+        let spi = self.registers_main();
+        // This read also clears the underrun flag
+        let sr = spi.sr.read();
+        if sr.udr().is_underrun() {
+            Err(TransmitError::Underrun)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Enables or disables DMA requests for transmission
+    pub fn main_set_dma_enabled(&mut self, enabled: bool) {
+        self.registers_main()
+            .cr2
+            .modify(|_, w| w.txdmaen().bit(enabled));
+    }
+
+    /// Enables the I2S peripheral
+    ///
+    /// In master mode, this will activate the word select and clock outputs and start sending
+    /// samples, with the left channel first. The first sample should be transmitted immediately
+    /// after enabling the I2S.
+    ///
+    /// In slave mode, this will cause the I2S peripheral to start responding to word select
+    /// and clock inputs from the master device. The first sample should be written to the data
+    /// register before the word select input goes low.
+    pub fn main_enable(&mut self) {
+        self.common_enable_main();
+    }
+
+    /// Disables the I2S peripheral
+    ///
+    /// To avoid stopping a transfer in the middle of a frame, this function returns WouldBlock
+    /// until the current transfer is finished.
+    pub fn main_disable(&mut self) -> nb::Result<(), Infallible> {
+        // "To switch off the I2S, by clearing I2SE, it is mandatory to wait for TXE = 1 and BSY = 0."
+        let sr = self.registers_main().sr.read();
+        if sr.txe().is_empty() && sr.bsy().is_not_busy() {
+            self.common_disable_main();
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Returns the I2S to init mode, allowing it to be reconfigured
+    ///
+    /// This function resets all configuration options, including interrupts and DMA setup.
+    ///
+    /// If the I2S peripheral is enabled, this function will block until it has finished the
+    /// current transmission.
+    pub fn main_deconfigure(mut self) -> DualI2s<I, InitMode> {
+        nb::block!(self.main_disable()).unwrap();
+        self.reset_registers_main();
+        DualI2s {
+            instance: self.instance,
+            // Default frame format (the real value will be filled in during configuration)
+            frame_formats: (FrameFormat::PhilipsI2s, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+}
+
+// ext half transmit
+impl<I, ANYMODE, F> DualI2s<I, (ANYMODE, TransmitMode<F>)>
+where
+    I: DualInstance,
+    F: DataFormat,
+{
+    /// Returns the channel on which the next sample will be transmitted, or None if a previous
+    /// sample is still in the process of being transmitted
+    pub fn ext_ready_to_transmit(&self) -> Option<Channel> {
+        use self::pac::spi1::sr::CHSIDE_A;
+        let registers = self.registers_ext();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            let channel = match sr.chside().variant() {
+                CHSIDE_A::LEFT => Channel::Left,
+                CHSIDE_A::RIGHT => Channel::Right,
+            };
+            Some(channel)
+        } else {
+            // Not ready, channel not valid
+            None
+        }
+    }
+
+    /// Writes a sample into the transmit buffer
+    ///
+    /// The I2S peripheral should normally be enabled before this function is called. However,
+    /// if the data format contains 16 bits, this function can be called once before enabling the
+    /// I2S to load the first sample.
+    ///
+    /// If the data format contains 24 or 32 bits, the sample will be split into two write
+    /// operations. This function will block until the second write has completed.
+    ///
+    pub fn ext_transmit(&mut self, sample: F::Sample) -> nb::Result<(), Infallible> {
+        let registers = self.registers_ext();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            F::write_sample(&self.frame_formats.0, &registers, sample);
+            Ok(())
+        } else {
+            // Can't write yet
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Transmits multiple samples, blocking until all samples have been transmitted
+    pub fn ext_transmit_blocking(&mut self, samples: &[F::Sample]) {
+        for sample in samples {
+            nb::block!(self.ext_transmit(*sample)).unwrap();
+        }
+    }
+
+    /// Writes a 16-bit value to the data register
+    ///
+    /// Like `transmit`, this function returns `Err(nb::Error::WouldBlock)` if the data register
+    /// contains a value that has not been transmitted yet.
+    ///
+    /// Unlike `transmit`, this function never blocks because it performs only one 16-bit write.
+    /// If the data format contains 24 or 32 bits, the calling code is responsible for dividing
+    /// each sample into two chunks and calling this function twice. Details about this can be found
+    /// in the microcontroller reference manual.
+    pub fn ext_write_data_register(&mut self, value: u16) -> nb::Result<(), Infallible> {
+        let registers = self.registers_ext();
+        let sr = registers.sr.read();
+        if sr.txe().is_empty() {
+            registers.dr.write(|w| w.dr().bits(value));
+            Ok(())
+        } else {
+            // Can't write yet
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Checks for an error and clears the error flag
+    pub fn ext_take_error(&mut self) -> Result<(), TransmitError> {
+        let spi = self.registers_ext();
+        // This read also clears the underrun flag
+        let sr = spi.sr.read();
+        if sr.udr().is_underrun() {
+            Err(TransmitError::Underrun)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Enables or disables DMA requests for transmission
+    pub fn ext_set_dma_enabled(&mut self, enabled: bool) {
+        self.registers_ext()
+            .cr2
+            .modify(|_, w| w.txdmaen().bit(enabled));
+    }
+
+    /// Enables the I2S peripheral
+    ///
+    /// In master mode, this will activate the word select and clock outputs and start sending
+    /// samples, with the left channel first. The first sample should be transmitted immediately
+    /// after enabling the I2S.
+    ///
+    /// In slave mode, this will cause the I2S peripheral to start responding to word select
+    /// and clock inputs from the master device. The first sample should be written to the data
+    /// register before the word select input goes low.
+    pub fn ext_enable(&mut self) {
+        self.common_enable_ext();
+    }
+
+    /// Disables the I2S peripheral
+    ///
+    /// To avoid stopping a transfer in the middle of a frame, this function returns WouldBlock
+    /// until the current transfer is finished.
+    pub fn ext_disable(&mut self) -> nb::Result<(), Infallible> {
+        // "To switch off the I2S, by clearing I2SE, it is mandatory to wait for TXE = 1 and BSY = 0."
+        let sr = self.registers_ext().sr.read();
+        if sr.txe().is_empty() && sr.bsy().is_not_busy() {
+            self.common_disable_ext();
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Returns the I2S to init mode, allowing it to be reconfigured
+    ///
+    /// This function resets all configuration options, including interrupts and DMA setup.
+    ///
+    /// If the I2S peripheral is enabled, this function will block until it has finished the
+    /// current transmission.
+    pub fn ext_deconfigure(mut self) -> DualI2s<I, InitMode> {
+        nb::block!(self.ext_disable()).unwrap();
+        self.reset_registers_ext();
+        DualI2s {
+            instance: self.instance,
+            // Default frame format (the real value will be filled in during configuration)
+            frame_formats: (self.frame_formats.0, FrameFormat::PhilipsI2s),
+            _modes: PhantomData,
+        }
+    }
+}
+
+// Main half receive
+impl<I, ANYMODE, F> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
+where
+    I: DualInstance,
+    F: DataFormat,
+{
+    /// Enables the I2S peripheral
+    ///
+    /// In master mode, this will activate the word select and clock outputs and start receiving
+    /// samples, with the left channel first. The first sample will be available shortly
+    /// after enabling the I2S.
+    ///
+    /// In slave mode, this will cause the I2S peripheral to start responding to word select
+    /// and clock inputs from the master device.
+    pub fn main_enable(&mut self) {
+        self.common_enable_main();
+    }
+
+    /// If a sample has been read in and is ready to receive, this function returns the channel
+    /// it was received on.
+    pub fn main_sample_ready(&self) -> Option<Channel> {
+        use crate::pac::spi1::sr::CHSIDE_A;
+
+        let spi = self.registers_main();
+        let sr = spi.sr.read();
+        if sr.rxne().is_not_empty() {
+            let channel = match sr.chside().variant() {
+                CHSIDE_A::LEFT => Channel::Left,
+                CHSIDE_A::RIGHT => Channel::Right,
+            };
+            Some(channel)
+        } else {
+            None
+        }
+    }
+
+    /// Receives a sample from the data register, returning the sample and its associated channel
+    ///
+    /// If the data format contains 24 or 32 bits, the sample will be split into two read
+    /// operations. This function will block until the second read has completed.
+    pub fn main_receive(&mut self) -> nb::Result<(F::Sample, Channel), Infallible> {
+        match self.main_sample_ready() {
+            Some(channel) => {
+                let sample = F::read_sample(&self.frame_formats.0, self.registers_main());
+                Ok((sample, channel))
+            }
+            None => Err(nb::Error::WouldBlock),
+        }
+    }
+
+    /// Receives multiple samples, blocking until all samples have been received
+    ///
+    /// Samples from the left and right channels will be interleaved.
+    pub fn main_receive_blocking(&mut self, samples: &mut [F::Sample]) {
+        for sample_in_buffer in samples {
+            let (sample, _channel) = nb::block!(self.main_receive()).unwrap();
+            *sample_in_buffer = sample;
+        }
+    }
+
+    /// Reads a 16-bit value from the data register, returning the value and its associated channel
+    ///
+    /// Like `receive`, this function returns `Err(nb::Error::WouldBlock)` if the data register
+    /// does not contain a value.
+    ///
+    /// Unlike `receive`, this function never blocks because it performs only one 16-bit read.
+    /// If the data format contains 24 or 32 bits, the calling code is responsible for calling this
+    /// function twice and combining the two returned chunks into a sample. Details about this can
+    /// be found in the microcontroller reference manual.
+    pub fn main_read_data_register(&mut self) -> nb::Result<(u16, Channel), Infallible> {
+        match self.main_sample_ready() {
+            Some(channel) => {
+                let sample = self.registers_main().dr.read().dr().bits();
+                Ok((sample, channel))
+            }
+            None => Err(nb::Error::WouldBlock),
+        }
+    }
+
+    /// Checks if an error has occurred, and clears the overrun error flag
+    pub fn main_take_error(&mut self) -> Result<(), ReceiveError> {
+        let spi = self.registers_main();
+        let sr = spi.sr.read();
+        let frame_error = sr.fre().is_error();
+        let overrun = sr.ovr().is_overrun();
+        if overrun {
+            // Clear flag by reading DR and then SR
+            let dr = spi.dr.read();
+            let _ = spi.sr.read();
+            if frame_error {
+                Err(ReceiveError::FrameAndOverrun(dr.dr().bits))
+            } else {
+                Err(ReceiveError::Overrun(dr.dr().bits))
+            }
+        } else if frame_error {
+            Err(ReceiveError::Frame)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Enables or disables DMA requests for reception
+    pub fn main_set_dma_enabled(&mut self, enabled: bool) {
+        self.registers_main()
+            .cr2
+            .modify(|_, w| w.rxdmaen().bit(enabled));
+    }
+
+    /// Disables the I2S
+    ///
+    /// In master mode, this stops the clock, word select, and (if enabled) master clock outputs.
+    ///
+    /// Caution: Before disabling the I2S, a specific sequence of operations should be performed
+    /// so that the I2S peripheral does not stop in the middle of a frame. Refer to the target
+    /// microcontroller reference manual for more information.
+    pub fn main_disable(&mut self) {
+        self.common_disable_main();
+    }
+
+    /// Returns the I2S to init mode, allowing it to be reconfigured
+    ///
+    /// This function resets all configuration options, including interrupts and DMA setup.
+    ///
+    /// If the I2S peripheral is enabled, this function will disable it.
+    pub fn main_deconfigure(mut self) -> DualI2s<I, (InitMode, ANYMODE)> {
+        self.main_disable();
+        self.reset_registers_main();
+        DualI2s {
+            instance: self.instance,
+            // Default frame format (the real value will be filled in during configuration)
+            frame_formats: (FrameFormat::PhilipsI2s, self.frame_formats.1),
+            _modes: PhantomData,
+        }
+    }
+}
+
+// ext half receive
+impl<I, ANYMODE, F> DualI2s<I, (ANYMODE, ReceiveMode<F>)>
+where
+    I: DualInstance,
+    F: DataFormat,
+{
+    /// Enables the I2S peripheral
+    ///
+    /// In master mode, this will activate the word select and clock outputs and start receiving
+    /// samples, with the left channel first. The first sample will be available shortly
+    /// after enabling the I2S.
+    ///
+    /// In slave mode, this will cause the I2S peripheral to start responding to word select
+    /// and clock inputs from the master device.
+    pub fn ext_enable(&mut self) {
+        self.common_enable_ext();
+    }
+
+    /// If a sample has been read in and is ready to receive, this function returns the channel
+    /// it was received on.
+    pub fn ext_sample_ready(&self) -> Option<Channel> {
+        use crate::pac::spi1::sr::CHSIDE_A;
+
+        let spi = self.registers_ext();
+        let sr = spi.sr.read();
+        if sr.rxne().is_not_empty() {
+            let channel = match sr.chside().variant() {
+                CHSIDE_A::LEFT => Channel::Left,
+                CHSIDE_A::RIGHT => Channel::Right,
+            };
+            Some(channel)
+        } else {
+            None
+        }
+    }
+
+    /// Receives a sample from the data register, returning the sample and its associated channel
+    ///
+    /// If the data format contains 24 or 32 bits, the sample will be split into two read
+    /// operations. This function will block until the second read has completed.
+    pub fn ext_receive(&mut self) -> nb::Result<(F::Sample, Channel), Infallible> {
+        match self.ext_sample_ready() {
+            Some(channel) => {
+                let sample = F::read_sample(&self.frame_formats.0, self.registers_ext());
+                Ok((sample, channel))
+            }
+            None => Err(nb::Error::WouldBlock),
+        }
+    }
+
+    /// Receives multiple samples, blocking until all samples have been received
+    ///
+    /// Samples from the left and right channels will be interleaved.
+    pub fn ext_receive_blocking(&mut self, samples: &mut [F::Sample]) {
+        for sample_in_buffer in samples {
+            let (sample, _channel) = nb::block!(self.ext_receive()).unwrap();
+            *sample_in_buffer = sample;
+        }
+    }
+
+    /// Reads a 16-bit value from the data register, returning the value and its associated channel
+    ///
+    /// Like `receive`, this function returns `Err(nb::Error::WouldBlock)` if the data register
+    /// does not contain a value.
+    ///
+    /// Unlike `receive`, this function never blocks because it performs only one 16-bit read.
+    /// If the data format contains 24 or 32 bits, the calling code is responsible for calling this
+    /// function twice and combining the two returned chunks into a sample. Details about this can
+    /// be found in the microcontroller reference manual.
+    pub fn ext_read_data_register(&mut self) -> nb::Result<(u16, Channel), Infallible> {
+        match self.ext_sample_ready() {
+            Some(channel) => {
+                let sample = self.registers_ext().dr.read().dr().bits();
+                Ok((sample, channel))
+            }
+            None => Err(nb::Error::WouldBlock),
+        }
+    }
+
+    /// Checks if an error has occurred, and clears the overrun error flag
+    pub fn ext_take_error(&mut self) -> Result<(), ReceiveError> {
+        let spi = self.registers_ext();
+        let sr = spi.sr.read();
+        let frame_error = sr.fre().is_error();
+        let overrun = sr.ovr().is_overrun();
+        if overrun {
+            // Clear flag by reading DR and then SR
+            let dr = spi.dr.read();
+            let _ = spi.sr.read();
+            if frame_error {
+                Err(ReceiveError::FrameAndOverrun(dr.dr().bits))
+            } else {
+                Err(ReceiveError::Overrun(dr.dr().bits))
+            }
+        } else if frame_error {
+            Err(ReceiveError::Frame)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Enables or disables DMA requests for reception
+    pub fn ext_set_dma_enabled(&mut self, enabled: bool) {
+        self.registers_ext()
+            .cr2
+            .modify(|_, w| w.rxdmaen().bit(enabled));
+    }
+
+    /// Disables the I2S
+    ///
+    /// In master mode, this stops the clock, word select, and (if enabled) master clock outputs.
+    ///
+    /// Caution: Before disabling the I2S, a specific sequence of operations should be performed
+    /// so that the I2S peripheral does not stop in the middle of a frame. Refer to the target
+    /// microcontroller reference manual for more information.
+    pub fn ext_disable(&mut self) {
+        self.common_disable_ext();
+    }
+
+    /// Returns the I2S to init mode, allowing it to be reconfigured
+    ///
+    /// This function resets all configuration options, including interrupts and DMA setup.
+    ///
+    /// If the I2S peripheral is enabled, this function will disable it.
+    pub fn ext_deconfigure(mut self) -> DualI2s<I, (ANYMODE, InitMode)> {
+        self.ext_disable();
+        self.reset_registers_ext();
+        DualI2s {
+            instance: self.instance,
+            // Default frame format (the real value will be filled in during configuration)
+            frame_formats: (self.frame_formats.0, FrameFormat::PhilipsI2s),
+            _modes: PhantomData,
+        }
     }
 }
 
