@@ -664,46 +664,46 @@ where
     }
 
     /// Returns references to the main I2S register blocks
-    fn registers_main(&self) -> &RegisterBlock {
+    fn main_registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS.0 }
     }
 
     /// Returns references to the extended I2S register blocks
-    fn registers_ext(&self) -> &RegisterBlock {
+    fn ext_registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS.1 }
     }
 
     /// Enables the main I2S peripheral
-    fn common_enable_main(&self) {
-        self.registers_main()
+    fn main_common_enable(&self) {
+        self.main_registers()
             .i2scfgr
             .modify(|_, w| w.i2se().enabled());
     }
 
     /// Enables the extended I2S peripheral
-    fn common_enable_ext(&self) {
-        self.registers_ext()
+    fn ext_common_enable(&self) {
+        self.ext_registers()
             .i2scfgr
             .modify(|_, w| w.i2se().enabled());
     }
 
     /// Disables the main I2S peripheral
-    fn common_disable_main(&self) {
-        self.registers_main()
+    fn main_common_disable(&self) {
+        self.main_registers()
             .i2scfgr
             .modify(|_, w| w.i2se().disabled());
     }
 
     /// Disables the extended I2S peripheral
-    fn common_disable_ext(&self) {
-        self.registers_ext()
+    fn ext_common_disable(&self) {
+        self.ext_registers()
             .i2scfgr
             .modify(|_, w| w.i2se().disabled());
     }
 
     /// Resets the values of all control and configuration registers
-    fn reset_registers_main(&self) {
-        let registers = self.registers_main();
+    fn main_reset_registers(&self) {
+        let registers = self.main_registers();
         registers.cr1.reset();
         registers.cr2.reset();
         registers.i2scfgr.reset();
@@ -711,8 +711,8 @@ where
     }
 
     /// Resets the values of all control and configuration registers
-    fn reset_registers_ext(&self) {
-        let registers = self.registers_ext();
+    fn ext_reset_registers(&self) {
+        let registers = self.ext_registers();
         registers.cr1.reset();
         registers.cr2.reset();
         registers.i2scfgr.reset();
@@ -741,15 +741,15 @@ where
     I: DualInstance,
 {
     /// Configures the main peripheral in master transmit mode
-    pub fn configure_main_master_transmit<F>(
+    pub fn main_configure_master_transmit<F>(
         self,
         config: MasterConfig<F>,
     ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
     where
         F: DataFormat,
     {
-        self.configure_main_clock_division(config.division, config.master_clock);
-        self.configure_main_i2s(
+        self.main_configure_clock_division(config.division, config.master_clock);
+        self.main_configure_i2s(
             I2SCFG_A::MASTERTX,
             config.data_format,
             &config.frame_format,
@@ -763,15 +763,15 @@ where
     }
 
     /// Configures the main peripheral in master receive mode
-    pub fn configure_main_master_receive<F>(
+    pub fn main_configure_master_receive<F>(
         self,
         config: MasterConfig<F>,
     ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
     where
         F: DataFormat,
     {
-        self.configure_main_clock_division(config.division, config.master_clock);
-        self.configure_main_i2s(
+        self.main_configure_clock_division(config.division, config.master_clock);
+        self.main_configure_i2s(
             I2SCFG_A::MASTERRX,
             config.data_format,
             &config.frame_format,
@@ -785,14 +785,14 @@ where
     }
 
     /// Configures the SPI peripheral in slave transmit mode
-    pub fn configure_main_slave_transmit<F>(
+    pub fn main_configure_slave_transmit<F>(
         self,
         config: SlaveConfig<F>,
     ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
     where
         F: DataFormat,
     {
-        self.configure_main_i2s(
+        self.main_configure_i2s(
             I2SCFG_A::SLAVETX,
             config.data_format,
             &config.frame_format,
@@ -806,14 +806,14 @@ where
     }
 
     /// Configures the SPI peripheral in slave receive mode
-    pub fn configure_main_slave_receive<F>(
+    pub fn main_configure_slave_receive<F>(
         self,
         config: SlaveConfig<F>,
     ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
     where
         F: DataFormat,
     {
-        self.configure_main_i2s(
+        self.main_configure_i2s(
             I2SCFG_A::SLAVERX,
             config.data_format,
             &config.frame_format,
@@ -829,7 +829,7 @@ where
     /// Sets the SPI peripheral to I2S mode and applies other settings to the SPI_CR2 register
     ///
     /// This does not modify any other registers, so it preserves interrupts and DMA setup.
-    fn configure_main_i2s<F>(
+    fn main_configure_i2s<F>(
         &self,
         mode: I2SCFG_A,
         _data_format: F,
@@ -850,7 +850,7 @@ where
             FrameFormat::Pcm(FrameSync::Short) => (I2SSTD_A::PCM, PCMSYNC_A::SHORT),
             FrameFormat::Pcm(FrameSync::Long) => (I2SSTD_A::PCM, PCMSYNC_A::LONG),
         };
-        self.registers_main().i2scfgr.write(|w| {
+        self.main_registers().i2scfgr.write(|w| {
             // Initially disabled (enable to actually start transferring data)
             w.i2se().disabled();
             w.i2smod().i2smode();
@@ -863,10 +863,10 @@ where
         });
     }
 
-    fn configure_main_clock_division(&self, division: u16, master_clock: MasterClock) {
+    fn main_configure_clock_division(&self, division: u16, master_clock: MasterClock) {
         let master_clock_enable = matches!(master_clock, MasterClock::Enable);
 
-        let spi = self.registers_main();
+        let spi = self.main_registers();
         let i2sdiv = division / 2;
         let odd = division % 2;
         assert!(i2sdiv >= 2 && i2sdiv <= 255);
@@ -884,14 +884,14 @@ where
     I: DualInstance,
 {
     /// Configures the SPI peripheral in slave transmit mode
-    pub fn configure_ext_slave_transmit<F>(
+    pub fn ext_configure_slave_transmit<F>(
         self,
         config: SlaveConfig<F>,
     ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
     where
         F: DataFormat,
     {
-        self.configure_ext_i2s(
+        self.ext_configure_i2s(
             I2SCFG_A::SLAVETX,
             config.data_format,
             &config.frame_format,
@@ -905,14 +905,14 @@ where
     }
 
     /// Configures the SPI peripheral in slave receive mode
-    pub fn configure_ext_slave_receive<F>(
+    pub fn ext_configure_slave_receive<F>(
         self,
         config: SlaveConfig<F>,
     ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
     where
         F: DataFormat,
     {
-        self.configure_ext_i2s(
+        self.ext_configure_i2s(
             I2SCFG_A::SLAVERX,
             config.data_format,
             &config.frame_format,
@@ -928,7 +928,7 @@ where
     /// Sets the SPI peripheral to I2S mode and applies other settings to the SPI_CR2 register
     ///
     /// This does not modify any other registers, so it preserves interrupts and DMA setup.
-    fn configure_ext_i2s<F>(
+    fn ext_configure_i2s<F>(
         &self,
         mode: I2SCFG_A,
         _data_format: F,
@@ -949,7 +949,7 @@ where
             FrameFormat::Pcm(FrameSync::Short) => (I2SSTD_A::PCM, PCMSYNC_A::SHORT),
             FrameFormat::Pcm(FrameSync::Long) => (I2SSTD_A::PCM, PCMSYNC_A::LONG),
         };
-        self.registers_ext().i2scfgr.write(|w| {
+        self.ext_registers().i2scfgr.write(|w| {
             // Initially disabled (enable to actually start transferring data)
             w.i2se().disabled();
             w.i2smod().i2smode();
@@ -959,20 +959,6 @@ where
             w.ckpol().variant(polarity);
             w.datlen().variant(F::DATLEN);
             w.chlen().variant(F::CHLEN)
-        });
-    }
-
-    fn configure_ext_clock_division(&self, division: u16, master_clock: MasterClock) {
-        let master_clock_enable = matches!(master_clock, MasterClock::Enable);
-
-        let spi = self.registers_ext();
-        let i2sdiv = division / 2;
-        let odd = division % 2;
-        assert!(i2sdiv >= 2 && i2sdiv <= 255);
-        spi.i2spr.write(|w| unsafe {
-            w.i2sdiv().bits(i2sdiv as u8);
-            w.odd().bit(odd != 0);
-            w.mckoe().bit(master_clock_enable)
         });
     }
 }
@@ -987,7 +973,7 @@ where
     /// sample is still in the process of being transmitted
     pub fn main_ready_to_transmit(&self) -> Option<Channel> {
         use self::pac::spi1::sr::CHSIDE_A;
-        let registers = self.registers_main();
+        let registers = self.main_registers();
         let sr = registers.sr.read();
         if sr.txe().is_empty() {
             let channel = match sr.chside().variant() {
@@ -1011,7 +997,7 @@ where
     /// operations. This function will block until the second write has completed.
     ///
     pub fn main_transmit(&mut self, sample: F::Sample) -> nb::Result<(), Infallible> {
-        let registers = self.registers_main();
+        let registers = self.main_registers();
         let sr = registers.sr.read();
         if sr.txe().is_empty() {
             F::write_sample(&self.frame_formats.0, &registers, sample);
@@ -1039,7 +1025,7 @@ where
     /// each sample into two chunks and calling this function twice. Details about this can be found
     /// in the microcontroller reference manual.
     pub fn main_write_data_register(&mut self, value: u16) -> nb::Result<(), Infallible> {
-        let registers = self.registers_main();
+        let registers = self.main_registers();
         let sr = registers.sr.read();
         if sr.txe().is_empty() {
             registers.dr.write(|w| w.dr().bits(value));
@@ -1052,7 +1038,7 @@ where
 
     /// Checks for an error and clears the error flag
     pub fn main_take_error(&mut self) -> Result<(), TransmitError> {
-        let spi = self.registers_main();
+        let spi = self.main_registers();
         // This read also clears the underrun flag
         let sr = spi.sr.read();
         if sr.udr().is_underrun() {
@@ -1064,7 +1050,7 @@ where
 
     /// Enables or disables DMA requests for transmission
     pub fn main_set_dma_enabled(&mut self, enabled: bool) {
-        self.registers_main()
+        self.main_registers()
             .cr2
             .modify(|_, w| w.txdmaen().bit(enabled));
     }
@@ -1079,7 +1065,7 @@ where
     /// and clock inputs from the master device. The first sample should be written to the data
     /// register before the word select input goes low.
     pub fn main_enable(&mut self) {
-        self.common_enable_main();
+        self.main_common_enable();
     }
 
     /// Disables the I2S peripheral
@@ -1088,9 +1074,9 @@ where
     /// until the current transfer is finished.
     pub fn main_disable(&mut self) -> nb::Result<(), Infallible> {
         // "To switch off the I2S, by clearing I2SE, it is mandatory to wait for TXE = 1 and BSY = 0."
-        let sr = self.registers_main().sr.read();
+        let sr = self.main_registers().sr.read();
         if sr.txe().is_empty() && sr.bsy().is_not_busy() {
-            self.common_disable_main();
+            self.main_common_disable();
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -1105,7 +1091,7 @@ where
     /// current transmission.
     pub fn main_deconfigure(mut self) -> DualI2s<I, InitMode> {
         nb::block!(self.main_disable()).unwrap();
-        self.reset_registers_main();
+        self.main_reset_registers();
         DualI2s {
             instance: self.instance,
             // Default frame format (the real value will be filled in during configuration)
@@ -1125,7 +1111,7 @@ where
     /// sample is still in the process of being transmitted
     pub fn ext_ready_to_transmit(&self) -> Option<Channel> {
         use self::pac::spi1::sr::CHSIDE_A;
-        let registers = self.registers_ext();
+        let registers = self.ext_registers();
         let sr = registers.sr.read();
         if sr.txe().is_empty() {
             let channel = match sr.chside().variant() {
@@ -1149,7 +1135,7 @@ where
     /// operations. This function will block until the second write has completed.
     ///
     pub fn ext_transmit(&mut self, sample: F::Sample) -> nb::Result<(), Infallible> {
-        let registers = self.registers_ext();
+        let registers = self.ext_registers();
         let sr = registers.sr.read();
         if sr.txe().is_empty() {
             F::write_sample(&self.frame_formats.0, &registers, sample);
@@ -1177,7 +1163,7 @@ where
     /// each sample into two chunks and calling this function twice. Details about this can be found
     /// in the microcontroller reference manual.
     pub fn ext_write_data_register(&mut self, value: u16) -> nb::Result<(), Infallible> {
-        let registers = self.registers_ext();
+        let registers = self.ext_registers();
         let sr = registers.sr.read();
         if sr.txe().is_empty() {
             registers.dr.write(|w| w.dr().bits(value));
@@ -1190,7 +1176,7 @@ where
 
     /// Checks for an error and clears the error flag
     pub fn ext_take_error(&mut self) -> Result<(), TransmitError> {
-        let spi = self.registers_ext();
+        let spi = self.ext_registers();
         // This read also clears the underrun flag
         let sr = spi.sr.read();
         if sr.udr().is_underrun() {
@@ -1202,7 +1188,7 @@ where
 
     /// Enables or disables DMA requests for transmission
     pub fn ext_set_dma_enabled(&mut self, enabled: bool) {
-        self.registers_ext()
+        self.ext_registers()
             .cr2
             .modify(|_, w| w.txdmaen().bit(enabled));
     }
@@ -1217,7 +1203,7 @@ where
     /// and clock inputs from the master device. The first sample should be written to the data
     /// register before the word select input goes low.
     pub fn ext_enable(&mut self) {
-        self.common_enable_ext();
+        self.ext_common_enable();
     }
 
     /// Disables the I2S peripheral
@@ -1226,9 +1212,9 @@ where
     /// until the current transfer is finished.
     pub fn ext_disable(&mut self) -> nb::Result<(), Infallible> {
         // "To switch off the I2S, by clearing I2SE, it is mandatory to wait for TXE = 1 and BSY = 0."
-        let sr = self.registers_ext().sr.read();
+        let sr = self.ext_registers().sr.read();
         if sr.txe().is_empty() && sr.bsy().is_not_busy() {
-            self.common_disable_ext();
+            self.ext_common_disable();
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -1243,7 +1229,7 @@ where
     /// current transmission.
     pub fn ext_deconfigure(mut self) -> DualI2s<I, InitMode> {
         nb::block!(self.ext_disable()).unwrap();
-        self.reset_registers_ext();
+        self.ext_reset_registers();
         DualI2s {
             instance: self.instance,
             // Default frame format (the real value will be filled in during configuration)
@@ -1268,7 +1254,7 @@ where
     /// In slave mode, this will cause the I2S peripheral to start responding to word select
     /// and clock inputs from the master device.
     pub fn main_enable(&mut self) {
-        self.common_enable_main();
+        self.main_common_enable();
     }
 
     /// If a sample has been read in and is ready to receive, this function returns the channel
@@ -1276,7 +1262,7 @@ where
     pub fn main_sample_ready(&self) -> Option<Channel> {
         use crate::pac::spi1::sr::CHSIDE_A;
 
-        let spi = self.registers_main();
+        let spi = self.main_registers();
         let sr = spi.sr.read();
         if sr.rxne().is_not_empty() {
             let channel = match sr.chside().variant() {
@@ -1296,7 +1282,7 @@ where
     pub fn main_receive(&mut self) -> nb::Result<(F::Sample, Channel), Infallible> {
         match self.main_sample_ready() {
             Some(channel) => {
-                let sample = F::read_sample(&self.frame_formats.0, self.registers_main());
+                let sample = F::read_sample(&self.frame_formats.0, self.main_registers());
                 Ok((sample, channel))
             }
             None => Err(nb::Error::WouldBlock),
@@ -1325,7 +1311,7 @@ where
     pub fn main_read_data_register(&mut self) -> nb::Result<(u16, Channel), Infallible> {
         match self.main_sample_ready() {
             Some(channel) => {
-                let sample = self.registers_main().dr.read().dr().bits();
+                let sample = self.main_registers().dr.read().dr().bits();
                 Ok((sample, channel))
             }
             None => Err(nb::Error::WouldBlock),
@@ -1334,7 +1320,7 @@ where
 
     /// Checks if an error has occurred, and clears the overrun error flag
     pub fn main_take_error(&mut self) -> Result<(), ReceiveError> {
-        let spi = self.registers_main();
+        let spi = self.main_registers();
         let sr = spi.sr.read();
         let frame_error = sr.fre().is_error();
         let overrun = sr.ovr().is_overrun();
@@ -1356,7 +1342,7 @@ where
 
     /// Enables or disables DMA requests for reception
     pub fn main_set_dma_enabled(&mut self, enabled: bool) {
-        self.registers_main()
+        self.main_registers()
             .cr2
             .modify(|_, w| w.rxdmaen().bit(enabled));
     }
@@ -1369,7 +1355,7 @@ where
     /// so that the I2S peripheral does not stop in the middle of a frame. Refer to the target
     /// microcontroller reference manual for more information.
     pub fn main_disable(&mut self) {
-        self.common_disable_main();
+        self.main_common_disable();
     }
 
     /// Returns the I2S to init mode, allowing it to be reconfigured
@@ -1379,7 +1365,7 @@ where
     /// If the I2S peripheral is enabled, this function will disable it.
     pub fn main_deconfigure(mut self) -> DualI2s<I, (InitMode, ANYMODE)> {
         self.main_disable();
-        self.reset_registers_main();
+        self.main_reset_registers();
         DualI2s {
             instance: self.instance,
             // Default frame format (the real value will be filled in during configuration)
@@ -1404,7 +1390,7 @@ where
     /// In slave mode, this will cause the I2S peripheral to start responding to word select
     /// and clock inputs from the master device.
     pub fn ext_enable(&mut self) {
-        self.common_enable_ext();
+        self.ext_common_enable();
     }
 
     /// If a sample has been read in and is ready to receive, this function returns the channel
@@ -1412,7 +1398,7 @@ where
     pub fn ext_sample_ready(&self) -> Option<Channel> {
         use crate::pac::spi1::sr::CHSIDE_A;
 
-        let spi = self.registers_ext();
+        let spi = self.ext_registers();
         let sr = spi.sr.read();
         if sr.rxne().is_not_empty() {
             let channel = match sr.chside().variant() {
@@ -1432,7 +1418,7 @@ where
     pub fn ext_receive(&mut self) -> nb::Result<(F::Sample, Channel), Infallible> {
         match self.ext_sample_ready() {
             Some(channel) => {
-                let sample = F::read_sample(&self.frame_formats.0, self.registers_ext());
+                let sample = F::read_sample(&self.frame_formats.0, self.ext_registers());
                 Ok((sample, channel))
             }
             None => Err(nb::Error::WouldBlock),
@@ -1461,7 +1447,7 @@ where
     pub fn ext_read_data_register(&mut self) -> nb::Result<(u16, Channel), Infallible> {
         match self.ext_sample_ready() {
             Some(channel) => {
-                let sample = self.registers_ext().dr.read().dr().bits();
+                let sample = self.ext_registers().dr.read().dr().bits();
                 Ok((sample, channel))
             }
             None => Err(nb::Error::WouldBlock),
@@ -1470,7 +1456,7 @@ where
 
     /// Checks if an error has occurred, and clears the overrun error flag
     pub fn ext_take_error(&mut self) -> Result<(), ReceiveError> {
-        let spi = self.registers_ext();
+        let spi = self.ext_registers();
         let sr = spi.sr.read();
         let frame_error = sr.fre().is_error();
         let overrun = sr.ovr().is_overrun();
@@ -1492,7 +1478,7 @@ where
 
     /// Enables or disables DMA requests for reception
     pub fn ext_set_dma_enabled(&mut self, enabled: bool) {
-        self.registers_ext()
+        self.ext_registers()
             .cr2
             .modify(|_, w| w.rxdmaen().bit(enabled));
     }
@@ -1505,7 +1491,7 @@ where
     /// so that the I2S peripheral does not stop in the middle of a frame. Refer to the target
     /// microcontroller reference manual for more information.
     pub fn ext_disable(&mut self) {
-        self.common_disable_ext();
+        self.ext_common_disable();
     }
 
     /// Returns the I2S to init mode, allowing it to be reconfigured
@@ -1515,7 +1501,7 @@ where
     /// If the I2S peripheral is enabled, this function will disable it.
     pub fn ext_deconfigure(mut self) -> DualI2s<I, (ANYMODE, InitMode)> {
         self.ext_disable();
-        self.reset_registers_ext();
+        self.ext_reset_registers();
         DualI2s {
             instance: self.instance,
             // Default frame format (the real value will be filled in during configuration)
