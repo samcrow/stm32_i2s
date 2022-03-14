@@ -887,7 +887,7 @@ where
     pub fn ext_configure_slave_transmit<F>(
         self,
         config: SlaveConfig<F>,
-    ) -> DualI2s<I, (TransmitMode<F>, ANYMODE)>
+    ) -> DualI2s<I, (ANYMODE, TransmitMode<F>)>
     where
         F: DataFormat,
     {
@@ -899,7 +899,7 @@ where
         );
         DualI2s {
             instance: self.instance,
-            frame_formats: (config.frame_format, self.frame_formats.1),
+            frame_formats: (self.frame_formats.0, config.frame_format),
             _modes: PhantomData,
         }
     }
@@ -908,7 +908,7 @@ where
     pub fn ext_configure_slave_receive<F>(
         self,
         config: SlaveConfig<F>,
-    ) -> DualI2s<I, (ReceiveMode<F>, ANYMODE)>
+    ) -> DualI2s<I, (ANYMODE, TransmitMode<F>)>
     where
         F: DataFormat,
     {
@@ -920,7 +920,7 @@ where
         );
         DualI2s {
             instance: self.instance,
-            frame_formats: (config.frame_format, self.frame_formats.1),
+            frame_formats: (self.frame_formats.0, config.frame_format),
             _modes: PhantomData,
         }
     }
