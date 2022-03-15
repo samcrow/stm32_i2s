@@ -1511,6 +1511,58 @@ where
     }
 }
 
+/// # Common functions for main
+///
+/// These interrupt functions can be used for transmission and reception.
+impl<I, M, ANYMODE> DualI2s<I, (M, ANYMODE)>
+where
+    I: DualInstance,
+    M: ActiveMode,
+{
+    /// Enables the interrupt signal output for an event
+    pub fn main_listen(&mut self, event: Event) {
+        self.main_registers().cr2.modify(|_, w| match event {
+            Event::TransmitEmtpy => w.txeie().not_masked(),
+            Event::ReceiveNotEmpty => w.rxneie().not_masked(),
+            Event::Error => w.errie().not_masked(),
+        })
+    }
+    /// Disables the interrupt signal output for an event
+    pub fn main_unlisten(&mut self, event: Event) {
+        self.main_registers().cr2.modify(|_, w| match event {
+            Event::TransmitEmtpy => w.txeie().masked(),
+            Event::ReceiveNotEmpty => w.rxneie().masked(),
+            Event::Error => w.errie().masked(),
+        })
+    }
+}
+
+/// # Common functions for ext
+///
+/// These interrupt functions can be used for transmission and reception.
+impl<I, ANYMODE, M> DualI2s<I, (ANYMODE, M)>
+where
+    I: DualInstance,
+    M: ActiveMode,
+{
+    /// Enables the interrupt signal output for an event
+    pub fn ext_listen(&mut self, event: Event) {
+        self.ext_registers().cr2.modify(|_, w| match event {
+            Event::TransmitEmtpy => w.txeie().not_masked(),
+            Event::ReceiveNotEmpty => w.rxneie().not_masked(),
+            Event::Error => w.errie().not_masked(),
+        })
+    }
+    /// Disables the interrupt signal output for an event
+    pub fn ext_unlisten(&mut self, event: Event) {
+        self.ext_registers().cr2.modify(|_, w| match event {
+            Event::TransmitEmtpy => w.txeie().masked(),
+            Event::ReceiveNotEmpty => w.rxneie().masked(),
+            Event::Error => w.errie().masked(),
+        })
+    }
+}
+
 /// Errors that can occur when transmitting
 #[derive(Debug)]
 pub enum TransmitError {
