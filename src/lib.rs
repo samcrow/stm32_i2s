@@ -43,7 +43,7 @@ pub enum Channel {
 /// Events with associated interrupts that can be enabled
 pub enum Event {
     /// The transmit data register is empty, and a sample can be written
-    TransmitEmtpy,
+    TransmitEmpty,
     /// The receive data register is not empty, and a sample can be read
     ReceiveNotEmpty,
     /// An error has occurred
@@ -626,7 +626,7 @@ where
     /// Enables the interrupt signal output for an event
     pub fn listen(&mut self, event: Event) {
         self.registers().cr2.modify(|_, w| match event {
-            Event::TransmitEmtpy => w.txeie().not_masked(),
+            Event::TransmitEmpty => w.txeie().not_masked(),
             Event::ReceiveNotEmpty => w.rxneie().not_masked(),
             Event::Error => w.errie().not_masked(),
         })
@@ -634,7 +634,7 @@ where
     /// Disables the interrupt signal output for an event
     pub fn unlisten(&mut self, event: Event) {
         self.registers().cr2.modify(|_, w| match event {
-            Event::TransmitEmtpy => w.txeie().masked(),
+            Event::TransmitEmpty => w.txeie().masked(),
             Event::ReceiveNotEmpty => w.rxneie().masked(),
             Event::Error => w.errie().masked(),
         })
@@ -1522,7 +1522,7 @@ where
     /// Enables the interrupt signal output for an event
     pub fn main_listen(&mut self, event: Event) {
         self.main_registers().cr2.modify(|_, w| match event {
-            Event::TransmitEmtpy => w.txeie().not_masked(),
+            Event::TransmitEmpty => w.txeie().not_masked(),
             Event::ReceiveNotEmpty => w.rxneie().not_masked(),
             Event::Error => w.errie().not_masked(),
         })
@@ -1530,7 +1530,7 @@ where
     /// Disables the interrupt signal output for an event
     pub fn main_unlisten(&mut self, event: Event) {
         self.main_registers().cr2.modify(|_, w| match event {
-            Event::TransmitEmtpy => w.txeie().masked(),
+            Event::TransmitEmpty => w.txeie().masked(),
             Event::ReceiveNotEmpty => w.rxneie().masked(),
             Event::Error => w.errie().masked(),
         })
@@ -1548,7 +1548,7 @@ where
     /// Enables the interrupt signal output for an event
     pub fn ext_listen(&mut self, event: Event) {
         self.ext_registers().cr2.modify(|_, w| match event {
-            Event::TransmitEmtpy => w.txeie().not_masked(),
+            Event::TransmitEmpty => w.txeie().not_masked(),
             Event::ReceiveNotEmpty => w.rxneie().not_masked(),
             Event::Error => w.errie().not_masked(),
         })
@@ -1556,7 +1556,7 @@ where
     /// Disables the interrupt signal output for an event
     pub fn ext_unlisten(&mut self, event: Event) {
         self.ext_registers().cr2.modify(|_, w| match event {
-            Event::TransmitEmtpy => w.txeie().masked(),
+            Event::TransmitEmpty => w.txeie().masked(),
             Event::ReceiveNotEmpty => w.rxneie().masked(),
             Event::Error => w.errie().masked(),
         })
