@@ -1,5 +1,7 @@
 # STM32 I2S driver
 
+*This library is currently redesigned, see [rework-branch.md](rework-branch.md) for details*
+
 This library provides a driver for I2S communication using the SPI peripherals on some STM32 microcontrollers.
 
 ## Differences between STM32 models
