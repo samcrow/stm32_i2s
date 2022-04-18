@@ -44,6 +44,11 @@ pub enum Channel {
     Right,
 }
 
+/// State
+pub enum WsState {
+    Low,
+    High,
+}
 /// An object composed of a SPI device that can be used for I2S communication.
 ///
 /// This trait is meant to be implemented on a type that represent a full SPI device, that means an
@@ -146,5 +151,15 @@ where
     /// When set to `true`, a dma request is generated each time the Rx buffer contains a new data.
     pub fn set_rx_dma(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
+    }
+
+    /// Is the signal on WS line high ?
+    pub fn ws_is_high(&self) -> bool {
+        todo!()
+    }
+
+    /// Is the signal on WS line low ?
+    pub fn ws_is_low(&self) -> bool {
+        todo!()
     }
 }
