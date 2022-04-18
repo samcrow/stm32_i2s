@@ -162,4 +162,7 @@ where
     pub fn ws_is_low(&self) -> bool {
         todo!()
     }
+
+    //TODO method to get a handle to WS pin. It may usefull for setting an interrupt on pin to
+    //synchronise I2s in slave mode
 }
