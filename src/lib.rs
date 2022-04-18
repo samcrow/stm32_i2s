@@ -44,11 +44,6 @@ pub enum Channel {
     Right,
 }
 
-/// State
-pub enum WsState {
-    Low,
-    High,
-}
 /// An object composed of a SPI device that can be used for I2S communication.
 ///
 /// This trait is meant to be implemented on a type that represent a full SPI device, that means an
