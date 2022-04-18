@@ -85,16 +85,6 @@ where
         unsafe { &*(I::REGISTERS as *const RegisterBlock) }
     }
 
-    /// Enables the I2S peripheral
-    fn common_enable(&self) {
-        self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
-    }
-
-    /// Disables the I2S peripheral
-    fn common_disable(&self) {
-        self.registers().i2scfgr.modify(|_, w| w.i2se().disabled());
-    }
-
     /// Resets the values of all control and configuration registers
     fn reset_registers(&self) {
         let registers = self.registers();
@@ -102,5 +92,59 @@ where
         registers.cr2.reset();
         registers.i2scfgr.reset();
         registers.i2spr.reset();
+    }
+}
+
+impl<I> I2sDriver<I>
+where
+    I: I2sPeripheral,
+{
+    /// Enable the I2S peripheral.
+    pub fn enable(&mut self) {
+        self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
+    }
+
+    /// Immediately Disable the I2S peripheral.
+    ///
+    /// It's up to the caller to not disable the peripheral in the middle of a frame.
+    pub fn disable(&mut self) {
+        self.registers().i2scfgr.modify(|_, w| w.i2se().disabled());
+    }
+
+    /// Write a raw half word to the Tx buffer and delete the TXE flag in status register.
+    ///
+    /// It's up to the caller to write the content when it's empty.
+    pub fn write_data_register(&mut self, value: u16) {
+        self.registers().dr.write(|w| w.dr().bits(value));
+    }
+
+    /// Read a raw value from the Rx buffer and delete the RXNE flag in status register.
+    pub fn read_data_register(&mut self) -> u16 {
+        self.registers().dr.read().dr().bits()
+    }
+
+    /// When set to `true`, an interrupt is generated each time the Tx buffer is empty.
+    pub fn set_tx_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.txeie().bit(enabled))
+    }
+
+    /// When set to `true`, an interrupt is generated each time the Rx buffer contains a new data.
+    pub fn set_rx_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.rxneie().bit(enabled))
+    }
+
+    /// When set to `true`, an interrupt is generated each time an error occurs.
+    pub fn set_error_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
+    }
+
+    /// When set to `true`, a dma request is generated each time the Tx buffer is empty.
+    pub fn set_tx_dma(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.txdmaen().bit(enabled))
+    }
+
+    /// When set to `true`, a dma request is generated each time the Rx buffer contains a new data.
+    pub fn set_rx_dma(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
     }
 }
