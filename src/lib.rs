@@ -22,10 +22,8 @@ mod sealed {
 use core::marker::PhantomData;
 
 pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
-use self::pac::generic::{Reg, R};
-use self::pac::spi1::cr2;
+use self::pac::spi1::sr;
 use self::pac::spi1::RegisterBlock;
-use self::pac::spi1::_SR;
 //use crate::format::{DataFormat, FrameFormat, FrameSync};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
 
@@ -55,7 +53,7 @@ pub enum Channel {
 
 /// Content of the status register.
 pub struct Status {
-    value: R<u32, Reg<u32, _SR>>,
+    value: sr::R,
 }
 
 impl Status {
