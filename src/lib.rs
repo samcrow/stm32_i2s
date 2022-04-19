@@ -10,7 +10,7 @@
 extern crate nb;
 extern crate vcell;
 
-mod config;
+//mod config;
 pub mod format;
 mod pac;
 
@@ -21,7 +21,7 @@ mod sealed {
 
 use core::marker::PhantomData;
 
-pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
+//pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
 use self::pac::spi1::sr;
 use self::pac::spi1::RegisterBlock;
 //use crate::format::{DataFormat, FrameFormat, FrameSync};
@@ -32,15 +32,6 @@ struct Master;
 
 /// Marker, indicate slave mode.
 struct Slave;
-
-/// Clock polarity
-#[derive(Debug, Clone)]
-pub enum Polarity {
-    /// Clock low when idle
-    IdleLow,
-    /// Clock high when idle
-    IdleHigh,
-}
 
 /// The channel associated with a sample
 #[derive(Debug, Clone, PartialEq)]
@@ -145,12 +136,22 @@ pub enum I2sStandard {
     PcmLongSync,
 }
 
+/// Steady state clock polarity
+#[derive(Debug, Clone, Copy)]
+pub enum ClockPolarity {
+    /// Clock low when idle
+    IdleLow,
+    /// Clock high when idle
+    IdleHigh,
+}
+
 #[derive(Debug, Clone, Copy)]
 /// I2s Configuration builder.
 pub struct Config<MS> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,
     standard: I2sStandard,
+    clock_polarity: ClockPolarity,
 
     _ms: PhantomData<MS>,
 }
@@ -162,6 +163,7 @@ impl Config<Slave> {
             slave_or_master: SlaveOrMaster::Slave,
             transmit_or_receive: TransmitOrReceive::Transmit,
             standard: I2sStandard::Philips,
+            clock_polarity: ClockPolarity::IdleLow,
             _ms: PhantomData,
         }
     }
@@ -174,6 +176,7 @@ impl Config<Master> {
             slave_or_master: SlaveOrMaster::Master,
             transmit_or_receive: TransmitOrReceive::Transmit,
             standard: I2sStandard::Philips,
+            clock_polarity: ClockPolarity::IdleLow,
             _ms: PhantomData,
         }
     }
@@ -200,6 +203,13 @@ impl<MS> Config<MS> {
     /// Select the I2s standard to use
     pub fn standard(mut self, standard: I2sStandard) -> Self {
         self.standard = standard;
+        self
+    }
+    /// Select steady state clock polarity
+    // datasheet don't precise how it affect I2s operation. In particular, this may meaningless for
+    // slave operation.
+    pub fn clock_polarity(mut self, polarity: ClockPolarity) -> Self {
+        self.clock_polarity = polarity;
         self
     }
 
