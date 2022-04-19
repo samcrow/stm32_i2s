@@ -131,10 +131,26 @@ enum TransmitOrReceive {
 }
 
 #[derive(Debug, Clone, Copy)]
+/// I2s standard selection.
+pub enum I2sStandard {
+    /// Philips I2S
+    Philips,
+    /// MSB Justified
+    Msb,
+    /// LSB Justified
+    Lsb,
+    /// PCM with short frame synchronisation.
+    PcmShortSync,
+    /// PCM with long frame synchronisation.
+    PcmLongSync,
+}
+
+#[derive(Debug, Clone, Copy)]
 /// I2s Configuration builder.
 pub struct Config<MS> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,
+    standard: I2sStandard,
 
     _ms: PhantomData<MS>,
 }
@@ -145,6 +161,7 @@ impl Config<Slave> {
         Self {
             slave_or_master: SlaveOrMaster::Slave,
             transmit_or_receive: TransmitOrReceive::Transmit,
+            standard: I2sStandard::Philips,
             _ms: PhantomData,
         }
     }
@@ -156,6 +173,7 @@ impl Config<Master> {
         Self {
             slave_or_master: SlaveOrMaster::Master,
             transmit_or_receive: TransmitOrReceive::Transmit,
+            standard: I2sStandard::Philips,
             _ms: PhantomData,
         }
     }
@@ -169,6 +187,22 @@ impl Default for Config<Slave> {
 }
 
 impl<MS> Config<MS> {
+    /// Configure in transmit mode
+    pub fn transmit(mut self) -> Self {
+        self.transmit_or_receive = TransmitOrReceive::Transmit;
+        self
+    }
+    /// Configure in transmit mode
+    pub fn receive(mut self) -> Self {
+        self.transmit_or_receive = TransmitOrReceive::Receive;
+        self
+    }
+    /// Select the I2s standard to use
+    pub fn standard(mut self, standard: I2sStandard) -> Self {
+        self.standard = standard;
+        self
+    }
+
     /// Instantiate the driver.
     pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
         let driver = I2sDriver { i2s_peripheral };
@@ -180,7 +214,15 @@ impl<MS> Config<MS> {
                 (SlaveOrMaster::Slave, TransmitOrReceive::Receive) => w.i2scfg().slave_rx(),
                 (SlaveOrMaster::Master, TransmitOrReceive::Transmit) => w.i2scfg().master_tx(),
                 (SlaveOrMaster::Master, TransmitOrReceive::Receive) => w.i2scfg().master_rx(),
-            }
+            };
+            match self.standard {
+                I2sStandard::Philips => w.i2sstd().philips(),
+                I2sStandard::Msb => w.i2sstd().msb(),
+                I2sStandard::Lsb => w.i2sstd().lsb(),
+                I2sStandard::PcmShortSync => w.i2sstd().pcm().pcmsync().short(),
+                I2sStandard::PcmLongSync => w.i2sstd().pcm().pcmsync().long(),
+            };
+            w
         });
         driver
     }
