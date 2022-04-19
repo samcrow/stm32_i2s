@@ -19,14 +19,21 @@ mod sealed {
 }
 //use self::sealed::Sealed;
 
-//use core::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
 use self::pac::generic::{Reg, R};
+use self::pac::spi1::cr2;
 use self::pac::spi1::RegisterBlock;
 use self::pac::spi1::_SR;
 //use crate::format::{DataFormat, FrameFormat, FrameSync};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
+
+/// Marker, indicated master mode.
+struct Master;
+
+/// Marker, indicate slave mode.
+struct Slave;
 
 /// Clock polarity
 #[derive(Debug, Clone)]
@@ -113,6 +120,74 @@ impl Status {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+enum SlaveOrMaster {
+    Slave,
+    Master,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TransmitOrReceive {
+    Transmit,
+    Receive,
+}
+
+#[derive(Debug, Clone, Copy)]
+/// I2s Configuration builder.
+pub struct Config<MS> {
+    slave_or_master: SlaveOrMaster,
+    transmit_or_receive: TransmitOrReceive,
+
+    _ms: PhantomData<MS>,
+}
+
+impl Config<Slave> {
+    /// Create a new default slave configuration.
+    pub fn new_slave() -> Self {
+        Self {
+            slave_or_master: SlaveOrMaster::Slave,
+            transmit_or_receive: TransmitOrReceive::Transmit,
+            _ms: PhantomData,
+        }
+    }
+}
+
+impl Config<Master> {
+    /// Create a new default master configuration.
+    pub fn new_master() -> Self {
+        Self {
+            slave_or_master: SlaveOrMaster::Master,
+            transmit_or_receive: TransmitOrReceive::Transmit,
+            _ms: PhantomData,
+        }
+    }
+}
+
+impl Default for Config<Slave> {
+    /// Create a default configuration. It correspond to a default slave configuration.
+    fn default() -> Self {
+        Self::new_slave()
+    }
+}
+
+impl<MS> Config<MS> {
+    /// Instantiate the driver.
+    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
+        let driver = I2sDriver { i2s_peripheral };
+        driver.registers().cr1.reset(); // ensure SPI is disabled
+        driver.registers().i2scfgr.write(|w| {
+            w.i2smod().i2smode();
+            match (self.slave_or_master, self.transmit_or_receive) {
+                (SlaveOrMaster::Slave, TransmitOrReceive::Transmit) => w.i2scfg().slave_tx(),
+                (SlaveOrMaster::Slave, TransmitOrReceive::Receive) => w.i2scfg().slave_rx(),
+                (SlaveOrMaster::Master, TransmitOrReceive::Transmit) => w.i2scfg().master_tx(),
+                (SlaveOrMaster::Master, TransmitOrReceive::Receive) => w.i2scfg().master_rx(),
+            }
+        });
+        driver
+    }
+}
+
 /// An object composed of a SPI device that can be used for I2S communication.
 ///
 /// This trait is meant to be implemented on a type that represent a full SPI device, that means an
@@ -142,7 +217,7 @@ pub unsafe trait I2sPeripheral {
 /// ```
 ///
 pub struct I2sDriver<I> {
-    _instance: I,
+    i2s_peripheral: I,
 }
 
 impl<I> I2sDriver<I>
