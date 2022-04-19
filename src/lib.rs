@@ -22,7 +22,9 @@ mod sealed {
 //use core::marker::PhantomData;
 
 pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
+use self::pac::generic::{Reg, R};
 use self::pac::spi1::RegisterBlock;
+use self::pac::spi1::_SR;
 //use crate::format::{DataFormat, FrameFormat, FrameSync};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
 
@@ -42,6 +44,73 @@ pub enum Channel {
     Left,
     /// Right channel (word select high)
     Right,
+}
+
+/// Content of the status register.
+pub struct Status {
+    value: R<u32, Reg<u32, _SR>>,
+}
+
+impl Status {
+    /// Get the FRE flag. If `true` a frame error occured.
+    ///
+    /// This flag can be set by hardware only if the I2sDriver is configured in Slave mode. It is set
+    /// when the WS line change at an unexpected moment. Usually, this indicate a synchronisation
+    /// issue. This flag is cleared when reading the status register.
+    pub fn fre(&self) -> bool {
+        self.value.fre().bit()
+    }
+
+    /// Get the BSY flag. If `true` the I2s device is busy communicating.
+    pub fn bsy(&self) -> bool {
+        self.value.bsy().bit()
+    }
+
+    /// Get the OVR flag. If `true` an overrun error occured.
+    ///
+    /// This flag is set when data are received and the previous data have not yet been read. As a
+    /// result, the incoming data are lost. This flag is cleared by a read operation on the data
+    /// register followed by a read to the status register.
+    pub fn ovr(&self) -> bool {
+        self.value.ovr().bit()
+    }
+
+    /// Get the UDR flag. If `true` an underrun error occured.
+    ///
+    /// This flag can be set only in slave transmission mode. It is set when the first clock for
+    /// data transmission appears while the software has not yet loaded any value into the data
+    /// register.
+    /// This flag is cleared by reading the status register.
+    pub fn udr(&self) -> bool {
+        self.value.udr().bit()
+    }
+
+    /// Get the CHSIDE flag. It indicate the channel has been received or to be transmitted. Have
+    /// no meaning with PCM standard.
+    ///
+    /// This flag is updated when TXE or RXNE flags are set. This flag is meaningless and therefore
+    /// not reliable is case of error or when using the PCM standard.
+    pub fn chside(&self) -> Channel {
+        match self.value.udr().bit() {
+            false => Channel::Left,
+            true => Channel::Right,
+        }
+    }
+
+    /// Get the TXE flag. If `true` the Tx buffer is empty and the next data can be loaded into it.
+    ///
+    /// This flag can be set only in transmision mode. This flag is cleared by writing into the
+    /// data register or by disabling the I2s peripheral.
+    pub fn txe(&self) -> bool {
+        self.value.txe().bit()
+    }
+
+    /// Get the RXNE flag. If `true` a valid received data is present in the Rx buffer.
+    ///
+    /// This flag can be only set in reception mode. It is cleared when the data register is read.
+    pub fn rxne(&self) -> bool {
+        self.value.rxne().bit()
+    }
 }
 
 /// An object composed of a SPI device that can be used for I2S communication.
@@ -109,6 +178,16 @@ where
     /// It's up to the caller to not disable the peripheral in the middle of a frame.
     pub fn disable(&mut self) {
         self.registers().i2scfgr.modify(|_, w| w.i2se().disabled());
+    }
+
+    /// Get the content of the status register. It's content may modified during the operation.
+    ///
+    /// When reading the status register, the hardware may reset some error flag of it. The way
+    /// each flag can be modified is documented on each [Status] flag getter.
+    pub fn status(&mut self) -> Status {
+        Status {
+            value: self.registers().sr.read(),
+        }
     }
 
     /// Write a raw half word to the Tx buffer and delete the TXE flag in status register.
