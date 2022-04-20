@@ -172,6 +172,7 @@ pub struct Config<MS> {
     standard: I2sStandard,
     clock_polarity: ClockPolarity,
     data_format: DataFormat,
+    master_clock: bool,
 
     _ms: PhantomData<MS>,
 }
@@ -185,6 +186,7 @@ impl Config<Slave> {
             standard: I2sStandard::Philips,
             clock_polarity: ClockPolarity::IdleLow,
             data_format: Default::default(),
+            master_clock: false,
             _ms: PhantomData,
         }
     }
@@ -199,8 +201,47 @@ impl Config<Master> {
             standard: I2sStandard::Philips,
             clock_polarity: ClockPolarity::IdleLow,
             data_format: Default::default(),
+            master_clock: false,
             _ms: PhantomData,
         }
+    }
+}
+
+impl<MS> Config<MS> {
+    /// Instantiate the driver.
+    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
+        let driver = I2sDriver { i2s_peripheral };
+        driver.registers().cr1.reset(); // ensure SPI is disabled
+        driver.registers().i2scfgr.write(|w| {
+            w.i2smod().i2smode();
+            match (self.slave_or_master, self.transmit_or_receive) {
+                (SlaveOrMaster::Slave, TransmitOrReceive::Transmit) => w.i2scfg().slave_tx(),
+                (SlaveOrMaster::Slave, TransmitOrReceive::Receive) => w.i2scfg().slave_rx(),
+                (SlaveOrMaster::Master, TransmitOrReceive::Transmit) => w.i2scfg().master_tx(),
+                (SlaveOrMaster::Master, TransmitOrReceive::Receive) => w.i2scfg().master_rx(),
+            };
+            match self.standard {
+                I2sStandard::Philips => w.i2sstd().philips(),
+                I2sStandard::Msb => w.i2sstd().msb(),
+                I2sStandard::Lsb => w.i2sstd().lsb(),
+                I2sStandard::PcmShortSync => w.i2sstd().pcm().pcmsync().short(),
+                I2sStandard::PcmLongSync => w.i2sstd().pcm().pcmsync().long(),
+            };
+            match self.data_format {
+                DataFormat::Data16Channel16 => w.datlen().sixteen_bit().chlen().sixteen_bit(),
+                DataFormat::Data16Channel32 => w.datlen().sixteen_bit().chlen().thirty_two_bit(),
+                DataFormat::Data24Channel32 => {
+                    w.datlen().twenty_four_bit().chlen().thirty_two_bit()
+                }
+                DataFormat::Data32Channel32 => w.datlen().thirty_two_bit().chlen().thirty_two_bit(),
+            };
+            w
+        });
+        driver.registers().i2spr.write(|w| {
+            w.mckoe().bit(self.master_clock);
+            w
+        });
+        driver
     }
 }
 
@@ -234,37 +275,15 @@ impl<MS> Config<MS> {
         self.clock_polarity = polarity;
         self
     }
+}
 
-    /// Instantiate the driver.
-    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
-        let driver = I2sDriver { i2s_peripheral };
-        driver.registers().cr1.reset(); // ensure SPI is disabled
-        driver.registers().i2scfgr.write(|w| {
-            w.i2smod().i2smode();
-            match (self.slave_or_master, self.transmit_or_receive) {
-                (SlaveOrMaster::Slave, TransmitOrReceive::Transmit) => w.i2scfg().slave_tx(),
-                (SlaveOrMaster::Slave, TransmitOrReceive::Receive) => w.i2scfg().slave_rx(),
-                (SlaveOrMaster::Master, TransmitOrReceive::Transmit) => w.i2scfg().master_tx(),
-                (SlaveOrMaster::Master, TransmitOrReceive::Receive) => w.i2scfg().master_rx(),
-            };
-            match self.standard {
-                I2sStandard::Philips => w.i2sstd().philips(),
-                I2sStandard::Msb => w.i2sstd().msb(),
-                I2sStandard::Lsb => w.i2sstd().lsb(),
-                I2sStandard::PcmShortSync => w.i2sstd().pcm().pcmsync().short(),
-                I2sStandard::PcmLongSync => w.i2sstd().pcm().pcmsync().long(),
-            };
-            match self.data_format {
-                DataFormat::Data16Channel16 => w.datlen().sixteen_bit().chlen().sixteen_bit(),
-                DataFormat::Data16Channel32 => w.datlen().sixteen_bit().chlen().thirty_two_bit(),
-                DataFormat::Data24Channel32 => {
-                    w.datlen().twenty_four_bit().chlen().thirty_two_bit()
-                }
-                DataFormat::Data32Channel32 => w.datlen().thirty_two_bit().chlen().thirty_two_bit(),
-            };
-            w
-        });
-        driver
+impl Config<Master> {
+    /// Enable/Disable Master Clock. Affect the effective sampling rate.
+    ///
+    /// This can be only set and only have meaning for Master mode.
+    pub fn master_clock(mut self, enable: bool) -> Self {
+        self.master_clock = enable;
+        self
     }
 }
 
