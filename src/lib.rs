@@ -145,6 +145,25 @@ pub enum ClockPolarity {
     IdleHigh,
 }
 
+/// Data length to be transferred and channel length
+#[derive(Debug, Clone, Copy)]
+pub enum DataFormat {
+    /// 16 bit date length on 16 bit wide channel
+    Data16Channel16,
+    /// 16 bit date length on 32 bit wide channel
+    Data16Channel32,
+    /// 24 bit date length on 32 bit wide channel
+    Data24Channel32,
+    /// 32 bit date length on 32 bit wide channel
+    Data32Channel32,
+}
+
+impl Default for DataFormat {
+    fn default() -> Self {
+        DataFormat::Data16Channel16
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 /// I2s Configuration builder.
 pub struct Config<MS> {
@@ -152,6 +171,7 @@ pub struct Config<MS> {
     transmit_or_receive: TransmitOrReceive,
     standard: I2sStandard,
     clock_polarity: ClockPolarity,
+    data_format: DataFormat,
 
     _ms: PhantomData<MS>,
 }
@@ -164,6 +184,7 @@ impl Config<Slave> {
             transmit_or_receive: TransmitOrReceive::Transmit,
             standard: I2sStandard::Philips,
             clock_polarity: ClockPolarity::IdleLow,
+            data_format: Default::default(),
             _ms: PhantomData,
         }
     }
@@ -177,6 +198,7 @@ impl Config<Master> {
             transmit_or_receive: TransmitOrReceive::Transmit,
             standard: I2sStandard::Philips,
             clock_polarity: ClockPolarity::IdleLow,
+            data_format: Default::default(),
             _ms: PhantomData,
         }
     }
@@ -231,6 +253,14 @@ impl<MS> Config<MS> {
                 I2sStandard::Lsb => w.i2sstd().lsb(),
                 I2sStandard::PcmShortSync => w.i2sstd().pcm().pcmsync().short(),
                 I2sStandard::PcmLongSync => w.i2sstd().pcm().pcmsync().long(),
+            };
+            match self.data_format {
+                DataFormat::Data16Channel16 => w.datlen().sixteen_bit().chlen().sixteen_bit(),
+                DataFormat::Data16Channel32 => w.datlen().sixteen_bit().chlen().thirty_two_bit(),
+                DataFormat::Data24Channel32 => {
+                    w.datlen().twenty_four_bit().chlen().thirty_two_bit()
+                }
+                DataFormat::Data32Channel32 => w.datlen().thirty_two_bit().chlen().thirty_two_bit(),
             };
             w
         });
