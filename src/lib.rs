@@ -173,6 +173,7 @@ pub struct Config<MS> {
     clock_polarity: ClockPolarity,
     data_format: DataFormat,
     master_clock: bool,
+    prescaler: (bool, u8),
 
     _ms: PhantomData<MS>,
 }
@@ -187,6 +188,7 @@ impl Config<Slave> {
             clock_polarity: ClockPolarity::IdleLow,
             data_format: Default::default(),
             master_clock: false,
+            prescaler: (false, 0b10),
             _ms: PhantomData,
         }
     }
@@ -202,6 +204,7 @@ impl Config<Master> {
             clock_polarity: ClockPolarity::IdleLow,
             data_format: Default::default(),
             master_clock: false,
+            prescaler: (false, 0b10),
             _ms: PhantomData,
         }
     }
@@ -239,6 +242,8 @@ impl<MS> Config<MS> {
         });
         driver.registers().i2spr.write(|w| {
             w.mckoe().bit(self.master_clock);
+            w.odd().bit(self.prescaler.0);
+            unsafe { w.i2sdiv().bits(self.prescaler.1) };
             w
         });
         driver
@@ -283,6 +288,29 @@ impl Config<Master> {
     /// This can be only set and only have meaning for Master mode.
     pub fn master_clock(mut self, enable: bool) -> Self {
         self.master_clock = enable;
+        self
+    }
+
+    /// Configure audio frequency by setting the prescaler with an odd factor and a divider.
+    ///
+    /// The effective sampling frequency is:
+    ///  - `i2s_clock / [256 * ((2 * div) + odd)]` when master clock is enabled
+    ///  - `i2s_clock / [(channel_length * 2) * ((2 * div) + odd)]` when master clock is disabled
+    ///
+    ///  `i2s_clock` is I2S clock source frequency, and `channel_length` is width in bits of the
+    ///  channel (see [DataFormat])
+    ///
+    /// This setting only have meaning and can be only set for master.
+    ///
+    /// # Panics
+    ///
+    /// `div` must be between 2 and 127, otherwise the method panics.
+    pub fn prescaler(mut self, odd: bool, div: u8) -> Self {
+        #[allow(clippy::manual_range_contains)]
+        if div < 2 || div > 127 {
+            panic!("div is out of bounds")
+        }
+        self.prescaler = (odd, div);
         self
     }
 }
