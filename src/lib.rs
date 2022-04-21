@@ -22,8 +22,8 @@ mod sealed {
 use core::marker::PhantomData;
 
 //pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
-use self::pac::spi1::sr;
 use self::pac::spi1::RegisterBlock;
+use self::pac::spi1::{i2spr, sr};
 //use crate::format::{DataFormat, FrameFormat, FrameSync};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
 
@@ -121,6 +121,14 @@ enum TransmitOrReceive {
     Receive,
 }
 
+/// Various ways to specify sampling frequency.
+#[derive(Debug, Clone, Copy)]
+enum Frequency {
+    Prescaler(bool, u8),
+    Request(u32),
+    Require(u32),
+}
+
 #[derive(Debug, Clone, Copy)]
 /// I2s standard selection.
 pub enum I2sStandard {
@@ -173,7 +181,7 @@ pub struct Config<MS> {
     clock_polarity: ClockPolarity,
     data_format: DataFormat,
     master_clock: bool,
-    prescaler: (bool, u8),
+    frequency: Frequency,
 
     _ms: PhantomData<MS>,
 }
@@ -188,7 +196,7 @@ impl Config<Slave> {
             clock_polarity: ClockPolarity::IdleLow,
             data_format: Default::default(),
             master_clock: false,
-            prescaler: (false, 0b10),
+            frequency: Frequency::Prescaler(false, 0b10),
             _ms: PhantomData,
         }
     }
@@ -204,10 +212,15 @@ impl Config<Master> {
             clock_polarity: ClockPolarity::IdleLow,
             data_format: Default::default(),
             master_clock: false,
-            prescaler: (false, 0b10),
+            frequency: Frequency::Prescaler(false, 0b10),
             _ms: PhantomData,
         }
     }
+}
+
+fn _set_prescaler(w: &mut i2spr::W, odd: bool, div: u8) {
+    w.odd().bit(odd);
+    unsafe { w.i2sdiv().bits(div) };
 }
 
 impl<MS> Config<MS> {
@@ -242,8 +255,11 @@ impl<MS> Config<MS> {
         });
         driver.registers().i2spr.write(|w| {
             w.mckoe().bit(self.master_clock);
-            w.odd().bit(self.prescaler.0);
-            unsafe { w.i2sdiv().bits(self.prescaler.1) };
+            match self.frequency {
+                Frequency::Prescaler(odd, div) => _set_prescaler(w, odd, div),
+                Frequency::Request(_freq) => todo!(),
+                Frequency::Require(_freq) => todo!(),
+            }
             w
         });
         driver
@@ -310,7 +326,21 @@ impl Config<Master> {
         if div < 2 || div > 127 {
             panic!("div is out of bounds")
         }
-        self.prescaler = (odd, div);
+        self.frequency = Frequency::Prescaler(odd, div);
+        self
+    }
+
+    /// Request an audio sampling frequency. The effective audio sampling frequency may differ.
+    pub fn request_frequency(mut self, freq: u32) -> Self {
+        self.frequency = Frequency::Request(freq);
+        self
+    }
+
+    /// Require exactly this audio sampling frequency.
+    ///
+    /// If the required frequency can not bet set, Instatiate the driver will produce a error
+    pub fn require_frequency(mut self, freq: u32) -> Self {
+        self.frequency = Frequency::Require(freq);
         self
     }
 }
