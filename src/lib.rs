@@ -362,6 +362,10 @@ impl Config<Master> {
 pub unsafe trait I2sPeripheral {
     /// Pointer to the SPI register block
     const REGISTERS: *const ();
+    /// Get I2s clock source frequency from the I2s device.
+    ///
+    /// Implemetors are allowed to panic in case i2s sourcefrequencey is unavailable.
+    fn i2s_source_freq(&self) -> u32;
 }
 
 /// Driver of a SPI peripheral in I2S mode
