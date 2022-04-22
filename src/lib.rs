@@ -263,6 +263,26 @@ fn _set_request_frequency(
     _set_prescaler(w, odd, div);
 }
 
+// see _set_request_frequency for explanation
+fn _set_require_frequency(
+    w: &mut i2spr::W,
+    i2s_clock: u32,
+    request_freq: u32,
+    mclk: bool,
+    data_format: DataFormat,
+) {
+    let coef = _coef(mclk, data_format);
+    let division = i2s_clock / (coef * request_freq);
+    let rem = i2s_clock / (coef * request_freq);
+    if rem == 0 && division >= 4 && division <= 511 {
+        let odd = (division & 1) == 1;
+        let div = (division >> 1) as u8;
+        _set_prescaler(w, odd, div);
+    } else {
+        panic!("Cannot reach exactly the required frequency")
+    };
+}
+
 // set _set_request_frequency for explanation
 fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
     if mclk {
@@ -316,7 +336,13 @@ impl<MS> Config<MS> {
                     self.master_clock,
                     self.data_format,
                 ),
-                Frequency::Require(_freq) => todo!(),
+                Frequency::Require(freq) => _set_require_frequency(
+                    w,
+                    driver.i2s_peripheral.i2s_freq(),
+                    freq,
+                    self.master_clock,
+                    self.data_format,
+                ),
             }
             w
         });
