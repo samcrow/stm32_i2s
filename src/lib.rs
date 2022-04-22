@@ -223,6 +223,7 @@ fn div_round(n: u32, d: u32) -> u32 {
     (n + (d >> 1)) / d
 }
 
+// unsafe, div should be greater or equal to 2
 fn _set_prescaler(w: &mut i2spr::W, odd: bool, div: u8) {
     w.odd().bit(odd);
     unsafe { w.i2sdiv().bits(div) };
@@ -254,8 +255,8 @@ fn _set_request_frequency(
     let division = div_round(i2s_clock, coef * request_freq);
     let (odd, div) = if division < 4 {
         (false, 2)
-    } else if division > 255 {
-        (true, 127)
+    } else if division > 511 {
+        (true, 255)
     } else {
         ((division & 1) == 1, (division >> 1) as u8)
     };
@@ -377,11 +378,11 @@ impl Config<Master> {
     ///
     /// # Panics
     ///
-    /// `div` must be between 2 and 127, otherwise the method panics.
+    /// `div` must be at least 2, otherwise the method panics.
     pub fn prescaler(mut self, odd: bool, div: u8) -> Self {
         #[allow(clippy::manual_range_contains)]
-        if div < 2 || div > 127 {
-            panic!("div is out of bounds")
+        if div < 2 {
+            panic!("div is less than 2, frobidden value")
         }
         self.frequency = Frequency::Prescaler(odd, div);
         self
