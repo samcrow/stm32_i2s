@@ -218,9 +218,60 @@ impl Config<Master> {
     }
 }
 
+/// rounding division
+fn div_round(n: u32, d: u32) -> u32 {
+    (n + (d >> 1)) / d
+}
+
 fn _set_prescaler(w: &mut i2spr::W, odd: bool, div: u8) {
     w.odd().bit(odd);
     unsafe { w.i2sdiv().bits(div) };
+}
+
+// Note, calculation details:
+// Fs = i2s_clock / [256 * ((2 * div) + odd)] when master clock is enabled
+// Fs = i2s_clock / [(channel_length * 2) * ((2 * div) + odd)]` when master clock is disabled
+// channel_length is 16 or 32
+//
+// can be rewritten as
+// Fs = i2s_clock / (coef * division)
+// where coef is a constant equal to 256, 64 or 32 depending channel length and master clock
+// and where division = (2 * div) + odd
+//
+// Equation can be rewritten as
+// division = i2s_clock/ (coef * Fs)
+//
+// note: division = (2 * div) + odd = (div << 1) + odd
+// in other word, from bits point of view, division[8:1] = div[7:0] and division[0] = odd
+fn _set_request_frequency(
+    w: &mut i2spr::W,
+    i2s_clock: u32,
+    request_freq: u32,
+    mclk: bool,
+    data_format: DataFormat,
+) {
+    let coef = _coef(mclk, data_format);
+    let division = div_round(i2s_clock, coef * request_freq);
+    let (odd, div) = if division < 4 {
+        (false, 2)
+    } else if division > 255 {
+        (true, 127)
+    } else {
+        ((division & 1) == 1, (division >> 1) as u8)
+    };
+    _set_prescaler(w, odd, div);
+}
+
+// set _set_request_frequency for explanation
+fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
+    if mclk {
+        return 256;
+    }
+    if let DataFormat::Data16Channel16 = data_format {
+        32
+    } else {
+        64
+    }
 }
 
 impl<MS> Config<MS> {
@@ -257,7 +308,13 @@ impl<MS> Config<MS> {
             w.mckoe().bit(self.master_clock);
             match self.frequency {
                 Frequency::Prescaler(odd, div) => _set_prescaler(w, odd, div),
-                Frequency::Request(_freq) => todo!(),
+                Frequency::Request(freq) => _set_request_frequency(
+                    w,
+                    driver.i2s_peripheral.i2s_freq(),
+                    freq,
+                    self.master_clock,
+                    self.data_format,
+                ),
                 Frequency::Require(_freq) => todo!(),
             }
             w
@@ -365,7 +422,7 @@ pub unsafe trait I2sPeripheral {
     /// Get I2s clock source frequency from the I2s device.
     ///
     /// Implemetors are allowed to panic in case i2s sourcefrequencey is unavailable.
-    fn i2s_source_freq(&self) -> u32;
+    fn i2s_freq(&self) -> u32;
 }
 
 /// Driver of a SPI peripheral in I2S mode
@@ -475,4 +532,17 @@ where
 
     //TODO method to get a handle to WS pin. It may usefull for setting an interrupt on pin to
     //synchronise I2s in slave mode
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_div_rounding() {
+        let fracs = [(1, 2), (2, 2), (1, 3), (2, 3), (2, 4), (3, 5), (9, 2)];
+        for (n, d) in fracs {
+            let res = div_rounding(n, d);
+            let check = f32::round((n as f32) / (d as f32)) as u32;
+            assert_eq!(res, check);
+        }
+    }
 }
