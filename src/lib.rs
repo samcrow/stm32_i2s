@@ -484,6 +484,28 @@ where
     }
 }
 
+/// Constructors and Desctructors
+impl<I> I2sDriver<I>
+where
+    I: I2sPeripheral,
+{
+    /// Instantiate and configure an i2s driver.
+    pub fn new<MS>(i2s_peripheral: I, config: Config<MS>) -> I2sDriver<I> {
+        config.i2s_driver(i2s_peripheral)
+    }
+
+    /// Destroy the driver and release the owned i2s device.
+    pub fn release(self) -> I {
+        self.i2s_peripheral
+    }
+
+    /// Consume the driver and create a new one with the given config
+    pub fn reconfigure<MS>(self, config: Config<MS>) -> I2sDriver<I> {
+        let i2s_peripheral = self.release();
+        config.i2s_driver(i2s_peripheral)
+    }
+}
+
 impl<I> I2sDriver<I>
 where
     I: I2sPeripheral,
