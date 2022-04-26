@@ -300,6 +300,7 @@ impl<MS> Config<MS> {
     pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
         let driver = I2sDriver { i2s_peripheral };
         driver.registers().cr1.reset(); // ensure SPI is disabled
+        driver.registers().cr2.reset(); // disable interrupt and DMA request
         driver.registers().i2scfgr.write(|w| {
             w.i2smod().i2smode();
             match (self.slave_or_master, self.transmit_or_receive) {
@@ -494,14 +495,19 @@ where
         config.i2s_driver(i2s_peripheral)
     }
 
-    /// Destroy the driver and release the owned i2s device.
+    /// Destroy the driver, release the owned i2s device and reset it's configuration.
     pub fn release(self) -> I {
+        let registers = self.registers();
+        registers.cr1.reset();
+        registers.cr2.reset();
+        registers.i2scfgr.reset();
+        registers.i2spr.reset();
         self.i2s_peripheral
     }
 
     /// Consume the driver and create a new one with the given config
     pub fn reconfigure<MS>(self, config: Config<MS>) -> I2sDriver<I> {
-        let i2s_peripheral = self.release();
+        let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)
     }
 }
