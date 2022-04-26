@@ -488,6 +488,11 @@ impl<I> I2sDriver<I>
 where
     I: I2sPeripheral,
 {
+    /// Get a reference to the underlaying i2s device
+    pub fn i2s_peripheral(&self) -> &I {
+        &self.i2s_peripheral
+    }
+
     /// Enable the I2S peripheral.
     pub fn enable(&mut self) {
         self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
