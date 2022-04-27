@@ -28,9 +28,11 @@ use self::pac::spi1::{i2spr, sr};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
 
 /// Marker, indicated master mode.
+#[derive(Debug, Clone, Copy)]
 pub struct Master;
 
 /// Marker, indicate slave mode.
+#[derive(Debug, Clone, Copy)]
 pub struct Slave;
 
 /// The channel associated with a sample
