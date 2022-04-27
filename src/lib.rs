@@ -381,6 +381,52 @@ impl<MS> Config<MS> {
         self.clock_polarity = polarity;
         self
     }
+
+    /// Convert to a slave configuration. This delete Master Only Settings.
+    pub fn to_slave(self) -> Config<Slave> {
+        let Self {
+            slave_or_master,
+            transmit_or_receive,
+            standard,
+            clock_polarity,
+            data_format,
+            ..
+        } = self;
+        Config::<Slave> {
+            slave_or_master,
+            transmit_or_receive,
+            standard,
+            clock_polarity,
+            data_format,
+            master_clock: false,
+            frequency: Frequency::Prescaler(false, 0b10),
+            _ms: PhantomData,
+        }
+    }
+
+    /// Convert to a master configuration.
+    pub fn to_master(self) -> Config<Slave> {
+        let Self {
+            slave_or_master,
+            transmit_or_receive,
+            standard,
+            clock_polarity,
+            data_format,
+            master_clock,
+            frequency,
+            ..
+        } = self;
+        Config::<Slave> {
+            slave_or_master,
+            transmit_or_receive,
+            standard,
+            clock_polarity,
+            data_format,
+            master_clock,
+            frequency,
+            _ms: PhantomData,
+        }
+    }
 }
 
 impl Config<Master> {
