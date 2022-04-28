@@ -11,7 +11,6 @@ extern crate nb;
 extern crate vcell;
 
 //mod config;
-pub mod format;
 mod pac;
 
 mod sealed {
