@@ -522,15 +522,6 @@ where
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*(I::REGISTERS as *const RegisterBlock) }
     }
-
-    /// Resets the values of all control and configuration registers
-    fn reset_registers(&self) {
-        let registers = self.registers();
-        registers.cr1.reset();
-        registers.cr2.reset();
-        registers.i2scfgr.reset();
-        registers.i2spr.reset();
-    }
 }
 
 /// Constructors and Desctructors
