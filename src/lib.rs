@@ -43,12 +43,6 @@ pub enum Channel {
     Right,
 }
 
-/// Level when reading an I2S WS Pin.
-pub enum WsLevel {
-    High,
-    Low,
-}
-
 /// Content of the status register.
 pub struct Status {
     value: sr::R,
@@ -504,8 +498,10 @@ pub unsafe trait I2sPeripheral {
     ///
     /// Implemetors are allowed to panic in case i2s source frequencey is unavailable.
     fn i2s_freq(&self) -> u32;
-    /// get the level at WS pin.
-    fn ws_level(&self) -> WsLevel;
+    /// Return `true` if the level at WS pin is high.
+    fn ws_is_high(&self) -> bool;
+    /// Return `true` if the level at WS pin is low.
+    fn ws_is_low(&self) -> bool;
 }
 
 /// Driver of a SPI peripheral in I2S mode
@@ -626,9 +622,14 @@ where
         self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
     }
 
-    /// Get the level on the WS line.
-    pub fn ws_level(&self) -> WsLevel {
-        self.i2s_peripheral.ws_level()
+    /// Return `true` if the level on the WS line is high.
+    pub fn ws_is_high(&self) -> bool {
+        self.i2s_peripheral.ws_is_high()
+    }
+
+    /// Return `true` if the level on the WS line is low.
+    pub fn ws_is_low(&self) -> bool {
+        self.i2s_peripheral.ws_is_low()
     }
 
     //TODO method to get a handle to WS pin. It may usefull for setting an interrupt on pin to
