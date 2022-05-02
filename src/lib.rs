@@ -392,7 +392,6 @@ impl<MS> Config<MS> {
     /// Convert to a slave configuration. This delete Master Only Settings.
     pub fn to_slave(self) -> Config<Slave> {
         let Self {
-            slave_or_master,
             transmit_or_receive,
             standard,
             clock_polarity,
@@ -400,7 +399,7 @@ impl<MS> Config<MS> {
             ..
         } = self;
         Config::<Slave> {
-            slave_or_master,
+            slave_or_master: SlaveOrMaster::Slave,
             transmit_or_receive,
             standard,
             clock_polarity,
@@ -414,7 +413,6 @@ impl<MS> Config<MS> {
     /// Convert to a master configuration.
     pub fn to_master(self) -> Config<Slave> {
         let Self {
-            slave_or_master,
             transmit_or_receive,
             standard,
             clock_polarity,
@@ -424,7 +422,7 @@ impl<MS> Config<MS> {
             ..
         } = self;
         Config::<Slave> {
-            slave_or_master,
+            slave_or_master: SlaveOrMaster::Master,
             transmit_or_receive,
             standard,
             clock_polarity,
