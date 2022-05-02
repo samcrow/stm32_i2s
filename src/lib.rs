@@ -383,6 +383,12 @@ impl<MS> Config<MS> {
         self
     }
 
+    /// Select data format
+    pub fn data_format(mut self, format: DataFormat) -> Self {
+        self.data_format = format;
+        self
+    }
+
     /// Convert to a slave configuration. This delete Master Only Settings.
     pub fn to_slave(self) -> Config<Slave> {
         let Self {
@@ -561,6 +567,11 @@ where
     /// Get a reference to the underlaying i2s device
     pub fn i2s_peripheral(&self) -> &I {
         &self.i2s_peripheral
+    }
+
+    /// Get a mutable reference to the underlaying i2s device
+    pub fn i2s_peripheral_mut(&mut self) -> &mut I {
+        &mut self.i2s_peripheral
     }
 
     /// Enable the I2S peripheral.
