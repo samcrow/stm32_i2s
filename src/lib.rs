@@ -88,7 +88,7 @@ impl Status {
     /// This flag is updated when TXE or RXNE flags are set. This flag is meaningless and therefore
     /// not reliable is case of error or when using the PCM standard.
     pub fn chside(&self) -> Channel {
-        match self.value.udr().bit() {
+        match self.value.chside().bit() {
             false => Channel::Left,
             true => Channel::Right,
         }
