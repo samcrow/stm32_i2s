@@ -622,11 +622,6 @@ where
         }
     }
 
-    /// When set to `true`, an interrupt is generated each time an error occurs.
-    pub fn set_error_interrupt(&mut self, enabled: bool) {
-        self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
-    }
-
     /// Return `true` if the level on the WS line is high.
     pub fn ws_is_high(&self) -> bool {
         self.i2s_peripheral.ws_is_high()
@@ -685,7 +680,33 @@ where
     }
 }
 
-/// Receive only methods
+/// Error interrupt, Master Receive Mode.
+impl<I> I2sDriver<I, Mode<Master, Receive>>
+where
+    I: I2sPeripheral,
+{
+    /// When set to `true`, an interrupt is generated each time an error occurs.
+    ///
+    /// Not available for Master Transmit because no error can occur in this mode.
+    pub fn set_error_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
+    }
+}
+
+/// Error interrupt, Slave Mode.
+impl<I, TR> I2sDriver<I, Mode<Slave, TR>>
+where
+    I: I2sPeripheral,
+{
+    /// When set to `true`, an interrupt is generated each time an error occurs.
+    ///
+    /// Not available for Master Transmit because no error can occur in this mode.
+    pub fn set_error_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
+    }
+}
+
+/// Sampling Rate
 impl<I, TR> I2sDriver<I, Mode<Master, TR>>
 where
     I: I2sPeripheral,
