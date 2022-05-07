@@ -501,7 +501,7 @@ impl<TR> Config<Master, TR> {
     pub fn prescaler(mut self, odd: bool, div: u8) -> Self {
         #[allow(clippy::manual_range_contains)]
         if div < 2 {
-            panic!("div is less than 2, frobidden value")
+            panic!("div is less than 2, forbidden value")
         }
         self.frequency = Frequency::Prescaler(odd, div);
         self
@@ -515,7 +515,7 @@ impl<TR> Config<Master, TR> {
 
     /// Require exactly this audio sampling frequency.
     ///
-    /// If the required frequency can not bet set, Instatiate the driver will produce a error
+    /// If the required frequency can not bet set, Instantiate the driver will produce a error
     pub fn require_frequency(mut self, freq: u32) -> Self {
         self.frequency = Frequency::Require(freq);
         self
@@ -541,7 +541,7 @@ pub unsafe trait I2sPeripheral {
     const REGISTERS: *const ();
     /// Get I2s clock source frequency from the I2s device.
     ///
-    /// Implemetors are allowed to panic in case i2s source frequencey is unavailable.
+    /// Implementers are allowed to panic in case i2s source frequency is unavailable.
     fn i2s_freq(&self) -> u32;
     /// Return `true` if the level at WS pin is high.
     fn ws_is_high(&self) -> bool;
@@ -574,7 +574,7 @@ where
     }
 }
 
-/// Constructors and Desctructors
+/// Constructors and Destructors
 impl<I, MS, TR> I2sDriver<I, Mode<MS, TR>>
 where
     I: I2sPeripheral,
@@ -594,7 +594,7 @@ where
         self.i2s_peripheral
     }
 
-    /// Consume the driver and create a new one with the given config
+    /// Consume the driver and create a new one with the given configuration.
     #[allow(non_camel_case_types)]
     pub fn reconfigure<NEW_MS, NEW_TR>(
         self,
@@ -609,12 +609,12 @@ impl<I, MODE> I2sDriver<I, MODE>
 where
     I: I2sPeripheral,
 {
-    /// Get a reference to the underlaying i2s device
+    /// Get a reference to the underlying i2s device
     pub fn i2s_peripheral(&self) -> &I {
         &self.i2s_peripheral
     }
 
-    /// Get a mutable reference to the underlaying i2s device
+    /// Get a mutable reference to the underlying i2s device
     pub fn i2s_peripheral_mut(&mut self) -> &mut I {
         &mut self.i2s_peripheral
     }
@@ -641,7 +641,7 @@ where
         self.i2s_peripheral.ws_is_low()
     }
 
-    //TODO method to get a handle to WS pin. It may usefull for setting an interrupt on pin to
+    //TODO(maybe) method to get a handle to WS pin. It may useful for setting an interrupt on pin to
     //synchronise I2s in slave mode
 }
 
