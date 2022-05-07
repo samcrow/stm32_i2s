@@ -685,6 +685,31 @@ where
     }
 }
 
+/// Receive only methods
+impl<I, TR> I2sDriver<I, Mode<Master, TR>>
+where
+    I: I2sPeripheral,
+{
+    /// Get the actual sample rate imposed by the driver.
+    ///
+    /// This allow to check deviation with a requested frequency.
+    pub fn sample_rate(&self) -> u32 {
+        let i2spr = self.registers().i2spr.read();
+        let mckoe = i2spr.mckoe().bit();
+        let odd = i2spr.odd().bit();
+        let div = i2spr.i2sdiv().bits();
+        let i2s_freq = self.i2s_peripheral.i2s_freq();
+        if mckoe {
+            i2s_freq / (256 * ((2 * div as u32) + odd as u32))
+        } else {
+            match self.registers().i2scfgr.read().chlen().bit() {
+                false => i2s_freq / ((16 * 2) * ((2 * div as u32) + odd as u32)),
+                true => i2s_freq / ((32 * 2) * ((2 * div as u32) + odd as u32)),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
