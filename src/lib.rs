@@ -665,7 +665,7 @@ where
 }
 
 /// Receive only methods
-impl<I, MS> I2sDriver<I, Mode<MS, Transmit>>
+impl<I, MS> I2sDriver<I, Mode<MS, Receive>>
 where
     I: I2sPeripheral,
 {
