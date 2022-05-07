@@ -39,42 +39,16 @@ pub enum Channel {
 }
 
 /// Content of the status register.
-pub struct Status {
+pub struct Status<MS, TR> {
     value: sr::R,
+    _ms: PhantomData<MS>,
+    _tr: PhantomData<TR>,
 }
 
-impl Status {
-    /// Get the FRE flag. If `true` a frame error occured.
-    ///
-    /// This flag can be set by hardware only if the I2sDriver is configured in Slave mode. It is set
-    /// when the WS line change at an unexpected moment. Usually, this indicate a synchronisation
-    /// issue. This flag is cleared when reading the status register.
-    pub fn fre(&self) -> bool {
-        self.value.fre().bit()
-    }
-
+impl<MS, TR> Status<MS, TR> {
     /// Get the BSY flag. If `true` the I2s device is busy communicating.
     pub fn bsy(&self) -> bool {
         self.value.bsy().bit()
-    }
-
-    /// Get the OVR flag. If `true` an overrun error occured.
-    ///
-    /// This flag is set when data are received and the previous data have not yet been read. As a
-    /// result, the incoming data are lost. This flag is cleared by a read operation on the data
-    /// register followed by a read to the status register.
-    pub fn ovr(&self) -> bool {
-        self.value.ovr().bit()
-    }
-
-    /// Get the UDR flag. If `true` an underrun error occured.
-    ///
-    /// This flag can be set only in slave transmission mode. It is set when the first clock for
-    /// data transmission appears while the software has not yet loaded any value into the data
-    /// register.
-    /// This flag is cleared by reading the status register.
-    pub fn udr(&self) -> bool {
-        self.value.udr().bit()
     }
 
     /// Get the CHSIDE flag. It indicate the channel has been received or to be transmitted. Have
@@ -88,20 +62,65 @@ impl Status {
             true => Channel::Right,
         }
     }
+}
 
-    /// Get the TXE flag. If `true` the Tx buffer is empty and the next data can be loaded into it.
+impl<TR> Status<Slave, TR> {
+    /// Get the FRE flag. If `true` a frame error occurred.
     ///
-    /// This flag can be set only in transmision mode. This flag is cleared by writing into the
-    /// data register or by disabling the I2s peripheral.
-    pub fn txe(&self) -> bool {
-        self.value.txe().bit()
+    /// This flag is set by hardware when the WS line change at an unexpected moment. Usually, this
+    /// indicate a synchronisation issue. This flag can only be set in Slave mode and therefore can
+    /// only be read in this mode.
+    ///
+    /// This flag is cleared when reading the status register.
+    pub fn fre(&self) -> bool {
+        self.value.fre().bit()
+    }
+}
+
+impl<MS> Status<MS, Receive> {
+    /// Get the OVR flag. If `true` an overrun error occurred.
+    ///
+    /// This flag is set when data are received and the previous data have not yet been read. As a
+    /// result, the incoming data are lost. Since this flag can happen only in Receive mode, it can
+    /// only be read in this mode.
+    ///
+    /// This flag is cleared by a read operation on the data register followed by a read to the
+    /// status register.
+    pub fn ovr(&self) -> bool {
+        self.value.ovr().bit()
     }
 
     /// Get the RXNE flag. If `true` a valid received data is present in the Rx buffer.
     ///
-    /// This flag can be only set in reception mode. It is cleared when the data register is read.
+    /// This flag can only happen in reception mode and therefore can only be read in this mode.
+    ///
+    /// This flag is cleared when the data register is read.
     pub fn rxne(&self) -> bool {
         self.value.rxne().bit()
+    }
+}
+
+impl<MS> Status<MS, Transmit> {
+    /// Get the TXE flag. If `true` the Tx buffer is empty and the next data can be loaded into it.
+    ///
+    /// This flag can only happen in transmission mode and therefore can only be read in this mode.
+    ///
+    /// This flag is cleared by writing into the data register or by disabling the I2s peripheral.
+    pub fn txe(&self) -> bool {
+        self.value.txe().bit()
+    }
+}
+
+impl Status<Slave, Transmit> {
+    /// Get the UDR flag. If `true` an underrun error occurred.
+    ///
+    /// This flag is set when the first clock for data transmission appears while the software has
+    /// not yet loaded any value into the data register. This flag can only be set in Slave
+    /// Transmit mode and therefore can only be read in this mode.
+    ///
+    /// This flag is cleared by reading the status register.
+    pub fn udr(&self) -> bool {
+        self.value.udr().bit()
     }
 }
 
@@ -612,16 +631,6 @@ where
         self.registers().i2scfgr.modify(|_, w| w.i2se().disabled());
     }
 
-    /// Get the content of the status register. It's content may modified during the operation.
-    ///
-    /// When reading the status register, the hardware may reset some error flag of it. The way
-    /// each flag can be modified is documented on each [Status] flag getter.
-    pub fn status(&mut self) -> Status {
-        Status {
-            value: self.registers().sr.read(),
-        }
-    }
-
     /// Return `true` if the level on the WS line is high.
     pub fn ws_is_high(&self) -> bool {
         self.i2s_peripheral.ws_is_high()
@@ -634,6 +643,24 @@ where
 
     //TODO method to get a handle to WS pin. It may usefull for setting an interrupt on pin to
     //synchronise I2s in slave mode
+}
+
+/// Status
+impl<I, MS, TR> I2sDriver<I, Mode<MS, TR>>
+where
+    I: I2sPeripheral,
+{
+    /// Get the content of the status register. It's content may modified during the operation.
+    ///
+    /// When reading the status register, the hardware may reset some error flag of it. The way
+    /// each flag can be modified is documented on each [Status] flag getter.
+    pub fn status(&mut self) -> Status<MS, TR> {
+        Status::<MS, TR> {
+            value: self.registers().sr.read(),
+            _ms: PhantomData,
+            _tr: PhantomData,
+        }
+    }
 }
 
 /// Transmit only methods
