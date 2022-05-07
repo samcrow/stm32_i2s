@@ -39,6 +39,9 @@ pub enum Channel {
 }
 
 /// Content of the status register.
+///
+///  - `MS`: `Master` or `Slave`
+///  - `TR`: `Transmit` or `Receive`
 pub struct Status<MS, TR> {
     value: sr::R,
     _ms: PhantomData<MS>,
@@ -189,6 +192,9 @@ impl Default for DataFormat {
 
 #[derive(Debug, Clone, Copy)]
 /// I2s Configuration builder.
+///
+///  - `MS`: `Master` or `Slave`
+///  - `TR`: `Transmit` or `Receive`
 pub struct Config<MS, TR> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,

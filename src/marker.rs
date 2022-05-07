@@ -2,6 +2,9 @@
 use core::marker::PhantomData;
 
 /// Marker, indicate operation mode of the I2sDriver.
+///
+///  - `MS`: `Master` or `Slave`
+///  - `TR`: `Transmit` or `Receive`
 #[derive(Debug, Clone, Copy)]
 pub struct Mode<MS, TR> {
     _ms: PhantomData<MS>,
