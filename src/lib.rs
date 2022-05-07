@@ -309,8 +309,14 @@ fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
 
 impl<MS, TR> Config<MS, TR> {
     /// Instantiate the driver.
-    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
-        let driver = I2sDriver { i2s_peripheral };
+    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, MS, TR> {
+        let _ms = PhantomData;
+        let _tr = PhantomData;
+        let driver = I2sDriver::<I, MS, TR> {
+            i2s_peripheral,
+            _ms,
+            _tr,
+        };
         driver.registers().cr1.reset(); // ensure SPI is disabled
         driver.registers().cr2.reset(); // disable interrupt and DMA request
         driver.registers().i2scfgr.write(|w| {
@@ -548,11 +554,14 @@ pub unsafe trait I2sPeripheral {
 /// ```no_run
 /// ```
 ///
-pub struct I2sDriver<I> {
+pub struct I2sDriver<I, MS, TR> {
     i2s_peripheral: I,
+
+    _ms: PhantomData<MS>,
+    _tr: PhantomData<TR>,
 }
 
-impl<I> I2sDriver<I>
+impl<I, MS, TR> I2sDriver<I, MS, TR>
 where
     I: I2sPeripheral,
 {
@@ -563,12 +572,12 @@ where
 }
 
 /// Constructors and Desctructors
-impl<I> I2sDriver<I>
+impl<I, MS, TR> I2sDriver<I, MS, TR>
 where
     I: I2sPeripheral,
 {
     /// Instantiate and configure an i2s driver.
-    pub fn new<MS, TR>(i2s_peripheral: I, config: Config<MS, TR>) -> I2sDriver<I> {
+    pub fn new(i2s_peripheral: I, config: Config<MS, TR>) -> Self {
         config.i2s_driver(i2s_peripheral)
     }
 
@@ -583,13 +592,17 @@ where
     }
 
     /// Consume the driver and create a new one with the given config
-    pub fn reconfigure<MS, TR>(self, config: Config<MS, TR>) -> I2sDriver<I> {
+    #[allow(non_camel_case_types)]
+    pub fn reconfigure<NEW_MS, NEW_TR>(
+        self,
+        config: Config<NEW_MS, NEW_TR>,
+    ) -> I2sDriver<I, NEW_MS, NEW_TR> {
         let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)
     }
 }
 
-impl<I> I2sDriver<I>
+impl<I, MS, TR> I2sDriver<I, MS, TR>
 where
     I: I2sPeripheral,
 {
@@ -625,41 +638,9 @@ where
         }
     }
 
-    /// Write a raw half word to the Tx buffer and delete the TXE flag in status register.
-    ///
-    /// It's up to the caller to write the content when it's empty.
-    pub fn write_data_register(&mut self, value: u16) {
-        self.registers().dr.write(|w| w.dr().bits(value));
-    }
-
-    /// Read a raw value from the Rx buffer and delete the RXNE flag in status register.
-    pub fn read_data_register(&mut self) -> u16 {
-        self.registers().dr.read().dr().bits()
-    }
-
-    /// When set to `true`, an interrupt is generated each time the Tx buffer is empty.
-    pub fn set_tx_interrupt(&mut self, enabled: bool) {
-        self.registers().cr2.modify(|_, w| w.txeie().bit(enabled))
-    }
-
-    /// When set to `true`, an interrupt is generated each time the Rx buffer contains a new data.
-    pub fn set_rx_interrupt(&mut self, enabled: bool) {
-        self.registers().cr2.modify(|_, w| w.rxneie().bit(enabled))
-    }
-
     /// When set to `true`, an interrupt is generated each time an error occurs.
     pub fn set_error_interrupt(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
-    }
-
-    /// When set to `true`, a dma request is generated each time the Tx buffer is empty.
-    pub fn set_tx_dma(&mut self, enabled: bool) {
-        self.registers().cr2.modify(|_, w| w.txdmaen().bit(enabled))
-    }
-
-    /// When set to `true`, a dma request is generated each time the Rx buffer contains a new data.
-    pub fn set_rx_dma(&mut self, enabled: bool) {
-        self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
     }
 
     /// Return `true` if the level on the WS line is high.
@@ -674,6 +655,50 @@ where
 
     //TODO method to get a handle to WS pin. It may usefull for setting an interrupt on pin to
     //synchronise I2s in slave mode
+}
+
+/// Transmit only methods
+impl<I, MS> I2sDriver<I, MS, Transmit>
+where
+    I: I2sPeripheral,
+{
+    /// Write a raw half word to the Tx buffer and delete the TXE flag in status register.
+    ///
+    /// It's up to the caller to write the content when it's empty.
+    pub fn write_data_register(&mut self, value: u16) {
+        self.registers().dr.write(|w| w.dr().bits(value));
+    }
+
+    /// When set to `true`, an interrupt is generated each time the Tx buffer is empty.
+    pub fn set_tx_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.txeie().bit(enabled))
+    }
+
+    /// When set to `true`, a dma request is generated each time the Tx buffer is empty.
+    pub fn set_tx_dma(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.txdmaen().bit(enabled))
+    }
+}
+
+/// Receive only methods
+impl<I, MS> I2sDriver<I, MS, Transmit>
+where
+    I: I2sPeripheral,
+{
+    /// Read a raw value from the Rx buffer and delete the RXNE flag in status register.
+    pub fn read_data_register(&mut self) -> u16 {
+        self.registers().dr.read().dr().bits()
+    }
+
+    /// When set to `true`, an interrupt is generated each time the Rx buffer contains a new data.
+    pub fn set_rx_interrupt(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.rxneie().bit(enabled))
+    }
+
+    /// When set to `true`, a dma request is generated each time the Rx buffer contains a new data.
+    pub fn set_rx_dma(&mut self, enabled: bool) {
+        self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
+    }
 }
 
 #[cfg(test)]
