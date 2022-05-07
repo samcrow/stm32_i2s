@@ -13,6 +13,9 @@ extern crate vcell;
 //mod config;
 mod pac;
 
+pub mod marker;
+use marker::*;
+
 mod sealed {
     pub trait Sealed {}
 }
@@ -25,22 +28,6 @@ use self::pac::spi1::RegisterBlock;
 use self::pac::spi1::{i2spr, sr};
 //use crate::format::{DataFormat, FrameFormat, FrameSync};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
-
-/// Marker, indicated master mode.
-#[derive(Debug, Clone, Copy)]
-pub struct Master;
-
-/// Marker, indicate slave mode.
-#[derive(Debug, Clone, Copy)]
-pub struct Slave;
-
-/// Marker, indicated transmit mode.
-#[derive(Debug, Clone, Copy)]
-pub struct Transmit;
-
-/// Marker, indicate receive mode.
-#[derive(Debug, Clone, Copy)]
-pub struct Receive;
 
 /// The channel associated with a sample
 #[derive(Debug, Clone, PartialEq)]
