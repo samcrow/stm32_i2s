@@ -34,6 +34,14 @@ pub struct Master;
 #[derive(Debug, Clone, Copy)]
 pub struct Slave;
 
+/// Marker, indicated transmit mode.
+#[derive(Debug, Clone, Copy)]
+pub struct Transmit;
+
+/// Marker, indicate receive mode.
+#[derive(Debug, Clone, Copy)]
+pub struct Receive;
+
 /// The channel associated with a sample
 #[derive(Debug, Clone, PartialEq)]
 pub enum Channel {
@@ -175,7 +183,7 @@ impl Default for DataFormat {
 
 #[derive(Debug, Clone, Copy)]
 /// I2s Configuration builder.
-pub struct Config<MS> {
+pub struct Config<MS, TR> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,
     standard: I2sStandard,
@@ -185,9 +193,10 @@ pub struct Config<MS> {
     frequency: Frequency,
 
     _ms: PhantomData<MS>,
+    _tr: PhantomData<TR>,
 }
 
-impl Config<Slave> {
+impl Config<Slave, Transmit> {
     /// Create a new default slave configuration.
     pub fn new_slave() -> Self {
         Self {
@@ -199,11 +208,12 @@ impl Config<Slave> {
             master_clock: false,
             frequency: Frequency::Prescaler(false, 0b10),
             _ms: PhantomData,
+            _tr: PhantomData,
         }
     }
 }
 
-impl Config<Master> {
+impl Config<Master, Transmit> {
     /// Create a new default master configuration.
     pub fn new_master() -> Self {
         Self {
@@ -215,6 +225,7 @@ impl Config<Master> {
             master_clock: false,
             frequency: Frequency::Prescaler(false, 0b10),
             _ms: PhantomData,
+            _tr: PhantomData,
         }
     }
 }
@@ -296,7 +307,7 @@ fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
     }
 }
 
-impl<MS> Config<MS> {
+impl<MS, TR> Config<MS, TR> {
     /// Instantiate the driver.
     pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I> {
         let driver = I2sDriver { i2s_peripheral };
@@ -352,23 +363,41 @@ impl<MS> Config<MS> {
     }
 }
 
-impl Default for Config<Slave> {
+impl Default for Config<Slave, Transmit> {
     /// Create a default configuration. It correspond to a default slave configuration.
     fn default() -> Self {
         Self::new_slave()
     }
 }
 
-impl<MS> Config<MS> {
+impl<MS, TR> Config<MS, TR> {
     /// Configure in transmit mode
-    pub fn transmit(mut self) -> Self {
-        self.transmit_or_receive = TransmitOrReceive::Transmit;
-        self
+    pub fn transmit(self) -> Config<MS, Transmit> {
+        Config::<MS, Transmit> {
+            slave_or_master: self.slave_or_master,
+            transmit_or_receive: TransmitOrReceive::Transmit,
+            standard: self.standard,
+            clock_polarity: self.clock_polarity,
+            data_format: self.data_format,
+            master_clock: self.master_clock,
+            frequency: self.frequency,
+            _ms: PhantomData,
+            _tr: PhantomData,
+        }
     }
     /// Configure in transmit mode
-    pub fn receive(mut self) -> Self {
-        self.transmit_or_receive = TransmitOrReceive::Receive;
-        self
+    pub fn receive(self) -> Config<MS, Receive> {
+        Config::<MS, Receive> {
+            slave_or_master: self.slave_or_master,
+            transmit_or_receive: TransmitOrReceive::Receive,
+            standard: self.standard,
+            clock_polarity: self.clock_polarity,
+            data_format: self.data_format,
+            master_clock: self.master_clock,
+            frequency: self.frequency,
+            _ms: PhantomData,
+            _tr: PhantomData,
+        }
     }
     /// Select the I2s standard to use
     pub fn standard(mut self, standard: I2sStandard) -> Self {
@@ -390,7 +419,7 @@ impl<MS> Config<MS> {
     }
 
     /// Convert to a slave configuration. This delete Master Only Settings.
-    pub fn to_slave(self) -> Config<Slave> {
+    pub fn to_slave(self) -> Config<Slave, TR> {
         let Self {
             transmit_or_receive,
             standard,
@@ -398,7 +427,7 @@ impl<MS> Config<MS> {
             data_format,
             ..
         } = self;
-        Config::<Slave> {
+        Config::<Slave, TR> {
             slave_or_master: SlaveOrMaster::Slave,
             transmit_or_receive,
             standard,
@@ -407,11 +436,12 @@ impl<MS> Config<MS> {
             master_clock: false,
             frequency: Frequency::Prescaler(false, 0b10),
             _ms: PhantomData,
+            _tr: PhantomData,
         }
     }
 
     /// Convert to a master configuration.
-    pub fn to_master(self) -> Config<Slave> {
+    pub fn to_master(self) -> Config<Master, TR> {
         let Self {
             transmit_or_receive,
             standard,
@@ -421,7 +451,7 @@ impl<MS> Config<MS> {
             frequency,
             ..
         } = self;
-        Config::<Slave> {
+        Config::<Master, TR> {
             slave_or_master: SlaveOrMaster::Master,
             transmit_or_receive,
             standard,
@@ -430,11 +460,12 @@ impl<MS> Config<MS> {
             master_clock,
             frequency,
             _ms: PhantomData,
+            _tr: PhantomData,
         }
     }
 }
 
-impl Config<Master> {
+impl<TR> Config<Master, TR> {
     /// Enable/Disable Master Clock. Affect the effective sampling rate.
     ///
     /// This can be only set and only have meaning for Master mode.
@@ -537,7 +568,7 @@ where
     I: I2sPeripheral,
 {
     /// Instantiate and configure an i2s driver.
-    pub fn new<MS>(i2s_peripheral: I, config: Config<MS>) -> I2sDriver<I> {
+    pub fn new<MS, TR>(i2s_peripheral: I, config: Config<MS, TR>) -> I2sDriver<I> {
         config.i2s_driver(i2s_peripheral)
     }
 
@@ -552,7 +583,7 @@ where
     }
 
     /// Consume the driver and create a new one with the given config
-    pub fn reconfigure<MS>(self, config: Config<MS>) -> I2sDriver<I> {
+    pub fn reconfigure<MS, TR>(self, config: Config<MS, TR>) -> I2sDriver<I> {
         let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)
     }
