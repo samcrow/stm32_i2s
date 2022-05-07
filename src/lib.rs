@@ -296,13 +296,11 @@ fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
 
 impl<MS, TR> Config<MS, TR> {
     /// Instantiate the driver.
-    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, MS, TR> {
-        let _ms = PhantomData;
-        let _tr = PhantomData;
-        let driver = I2sDriver::<I, MS, TR> {
+    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, Mode<MS, TR>> {
+        let _mode = PhantomData;
+        let driver = I2sDriver::<I, Mode<MS, TR>> {
             i2s_peripheral,
-            _ms,
-            _tr,
+            _mode,
         };
         driver.registers().cr1.reset(); // ensure SPI is disabled
         driver.registers().cr2.reset(); // disable interrupt and DMA request
@@ -541,14 +539,13 @@ pub unsafe trait I2sPeripheral {
 /// ```no_run
 /// ```
 ///
-pub struct I2sDriver<I, MS, TR> {
+pub struct I2sDriver<I, MODE> {
     i2s_peripheral: I,
 
-    _ms: PhantomData<MS>,
-    _tr: PhantomData<TR>,
+    _mode: PhantomData<MODE>,
 }
 
-impl<I, MS, TR> I2sDriver<I, MS, TR>
+impl<I, MODE> I2sDriver<I, MODE>
 where
     I: I2sPeripheral,
 {
@@ -559,7 +556,7 @@ where
 }
 
 /// Constructors and Desctructors
-impl<I, MS, TR> I2sDriver<I, MS, TR>
+impl<I, MS, TR> I2sDriver<I, Mode<MS, TR>>
 where
     I: I2sPeripheral,
 {
@@ -583,13 +580,13 @@ where
     pub fn reconfigure<NEW_MS, NEW_TR>(
         self,
         config: Config<NEW_MS, NEW_TR>,
-    ) -> I2sDriver<I, NEW_MS, NEW_TR> {
+    ) -> I2sDriver<I, Mode<NEW_MS, NEW_TR>> {
         let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)
     }
 }
 
-impl<I, MS, TR> I2sDriver<I, MS, TR>
+impl<I, MODE> I2sDriver<I, MODE>
 where
     I: I2sPeripheral,
 {
@@ -645,7 +642,7 @@ where
 }
 
 /// Transmit only methods
-impl<I, MS> I2sDriver<I, MS, Transmit>
+impl<I, MS> I2sDriver<I, Mode<MS, Transmit>>
 where
     I: I2sPeripheral,
 {
@@ -668,7 +665,7 @@ where
 }
 
 /// Receive only methods
-impl<I, MS> I2sDriver<I, MS, Transmit>
+impl<I, MS> I2sDriver<I, Mode<MS, Transmit>>
 where
     I: I2sPeripheral,
 {
