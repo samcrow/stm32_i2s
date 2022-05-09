@@ -23,6 +23,9 @@ mod sealed {
 
 use core::marker::PhantomData;
 
+mod transfer;
+pub use transfer::*;
+
 //pub use self::config::{MasterClock, MasterConfig, SlaveConfig};
 use self::pac::spi1::RegisterBlock;
 use self::pac::spi1::{i2spr, sr};
