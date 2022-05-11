@@ -143,6 +143,92 @@ impl<TR> TransferConfig<Master, TR> {
     }
 }
 
-pub struct Transfer<I: I2sPeripheral, MODE> {
+/// Part of the frame we currently transmitting or receiving
+#[derive(Debug)]
+enum FrameState {
+    LeftMsb,
+    LeftLsb,
+    RightMsb,
+    RightLsb,
+}
+use FrameState::*;
+
+pub struct Transfer<I, MODE>
+where
+    I: I2sPeripheral,
+{
     driver: Driver<I, MODE>,
+}
+
+/// Constructors and Destructors
+impl<I, MS, TR> Transfer<I, Mode<MS, TR>>
+where
+    I: I2sPeripheral,
+{
+    /// Instantiate and configure an i2s driver.
+    pub fn new(i2s_peripheral: I, config: TransferConfig<MS, TR>) -> Self {
+        config.i2s_transfer(i2s_peripheral)
+    }
+
+    /// Destroy the transfer, release the owned i2s device and reset it's configuration.
+    pub fn release(self) -> I {
+        self.driver.release()
+    }
+}
+
+impl<I, TR> Transfer<I, Mode<Master, TR>>
+where
+    I: I2sPeripheral,
+{
+    pub fn sample_rate(&self) -> u32 {
+        self.driver.sample_rate()
+    }
+}
+
+impl<I> Transfer<I, Mode<Master, Transmit>>
+where
+    I: I2sPeripheral,
+{
+    pub fn write_iter<ITER>(&mut self, samples: ITER)
+    where
+        ITER: IntoIterator<Item = (i32, i32)>,
+    {
+        let mut frame_state = LeftMsb;
+        let mut frame = (0, 0);
+        let mut samples = samples.into_iter();
+        self.driver.disable();
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.txe() {
+                let data;
+                match frame_state {
+                    LeftMsb => {
+                        let smpl = samples.next();
+                        //breaking here ensure the last frame is fully transmitted
+                        if smpl.is_none() {
+                            break;
+                        }
+                        frame = smpl.unwrap();
+                        data = (frame.0 as u32 >> 16) as u16;
+                        frame_state = LeftLsb;
+                    }
+                    LeftLsb => {
+                        data = (frame.0 as u32 & 0xFFFF) as u16;
+                        frame_state = RightMsb;
+                    }
+                    RightMsb => {
+                        data = (frame.1 as u32 >> 16) as u16;
+                        frame_state = RightLsb;
+                    }
+                    RightLsb => {
+                        data = (frame.1 as u32 & 0xFFFF) as u16;
+                        frame_state = LeftMsb;
+                    }
+                }
+                self.driver.write_data_register(data);
+            }
+        }
+        self.driver.disable();
+    }
 }
