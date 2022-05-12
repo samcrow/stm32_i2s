@@ -1,6 +1,8 @@
 //! Abstraction for I2S transfer
 //!
 //!
+use core::convert::Infallible;
+use nb::Error::WouldBlock;
 
 use crate::Config as DriverConfig;
 use crate::I2sDriver as Driver;
@@ -37,7 +39,11 @@ impl<MS, TR> TransferConfig<MS, TR> {
     /// Create a `Transfer` object.
     pub fn i2s_transfer<I: I2sPeripheral>(self, i2s_peripheral: I) -> Transfer<I, Mode<MS, TR>> {
         let driver = self.driver_config.i2s_driver(i2s_peripheral);
-        Transfer::<I, Mode<MS, TR>> { driver }
+        Transfer::<I, Mode<MS, TR>> {
+            driver,
+            frame: Default::default(),
+            frame_state: FrameState::LeftMsb,
+        }
     }
 }
 
@@ -158,6 +164,8 @@ where
     I: I2sPeripheral,
 {
     driver: Driver<I, MODE>,
+    frame: (i32, i32),
+    frame_state: FrameState,
 }
 
 /// Constructors and Destructors
@@ -173,6 +181,23 @@ where
     /// Destroy the transfer, release the owned i2s device and reset it's configuration.
     pub fn release(self) -> I {
         self.driver.release()
+    }
+}
+
+impl<I, MS, TR> Transfer<I, Mode<MS, TR>>
+where
+    I: I2sPeripheral,
+{
+    /// Activate the I2s interface.
+    pub fn begin(&mut self) {
+        self.driver.enable()
+    }
+
+    /// Deactivate the I2s interface and reset internal state
+    pub fn end(&mut self) {
+        self.driver.disable();
+        self.frame = Default::default();
+        self.frame_state = FrameState::LeftMsb;
     }
 }
 
@@ -230,5 +255,41 @@ where
             }
         }
         self.driver.disable();
+    }
+
+    /// Write one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To fully transmit the frame, this function need to be continuously called until next
+    /// frame can be written.
+    pub fn write(&mut self, frame: (i32, i32)) -> nb::Result<(), Infallible> {
+        self.driver.enable();
+        let status = self.driver.status();
+        if status.txe() {
+            match self.frame_state {
+                LeftMsb => {
+                    self.frame = frame;
+                    let data = (self.frame.0 as u32 >> 16) as u16;
+                    self.driver.write_data_register(data);
+                    self.frame_state = LeftLsb;
+                    return Ok(());
+                }
+                LeftLsb => {
+                    let data = (self.frame.0 as u32 & 0xFFFF) as u16;
+                    self.driver.write_data_register(data);
+                    self.frame_state = RightMsb;
+                }
+                RightMsb => {
+                    let data = (self.frame.1 as u32 >> 16) as u16;
+                    self.driver.write_data_register(data);
+                    self.frame_state = RightLsb;
+                }
+                RightLsb => {
+                    let data = (frame.1 as u32 & 0xFFFF) as u16;
+                    self.driver.write_data_register(data);
+                    self.frame_state = LeftMsb;
+                }
+            }
+        }
+        Err(WouldBlock)
     }
 }
