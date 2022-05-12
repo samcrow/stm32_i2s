@@ -293,3 +293,70 @@ where
         Err(WouldBlock)
     }
 }
+
+impl<I> Transfer<I, Slave, Transmit>
+where
+    I: I2sPeripheral,
+{
+    #[inline]
+    // Can't make it work now
+    pub fn write_iter<ITER>(&mut self, samples: ITER)
+    where
+        ITER: IntoIterator<Item = (i32, i32)>,
+    {
+        let mut frame_state = LeftMsb;
+        let mut frame = (0, 0);
+        let mut samples = samples.into_iter();
+        self.driver.disable();
+        self.driver.status();
+        // initial synchronisation
+        while !self.driver.ws_is_high() {}
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.txe() {
+                let data;
+                match (frame_state, status.chside()) {
+                    (LeftMsb, Channel::Left) => {
+                        let smpl = samples.next();
+                        //breaking here ensure the last frame is fully transmitted
+                        if smpl.is_none() {
+                            break;
+                        }
+                        frame = smpl.unwrap();
+                        data = (frame.0 as u32 >> 16) as u16;
+                        frame_state = LeftLsb;
+                    }
+                    (LeftLsb, _) => {
+                        data = (frame.0 as u32 & 0xFFFF) as u16;
+                        frame_state = RightMsb;
+                    }
+                    (RightMsb, _) => {
+                        data = (frame.1 as u32 >> 16) as u16;
+                        frame_state = RightLsb;
+                    }
+                    (RightLsb, _) => {
+                        data = (frame.1 as u32 & 0xFFFF) as u16;
+                        frame_state = LeftMsb;
+                    }
+                    _ => {
+                        data = 0;
+                        frame_state = LeftMsb;
+                    }
+                }
+                self.driver.write_data_register(data);
+            }
+            if status.fre() {
+                rtt_target::rprintln!("{} {}", status.fre(), status.udr());
+                self.driver.disable();
+                frame_state = LeftMsb;
+                while !self.driver.ws_is_high() {}
+                self.driver.enable();
+            }
+            if status.udr() {
+                rtt_target::rprintln!("udr");
+            }
+        }
+        self.driver.disable();
+    }
+}
