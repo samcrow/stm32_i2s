@@ -37,9 +37,9 @@ impl TransferConfig<Master, Transmit> {
 
 impl<MS, TR> TransferConfig<MS, TR> {
     /// Create a `Transfer` object.
-    pub fn i2s_transfer<I: I2sPeripheral>(self, i2s_peripheral: I) -> Transfer<I, Mode<MS, TR>> {
+    pub fn i2s_transfer<I: I2sPeripheral>(self, i2s_peripheral: I) -> Transfer<I, MS, TR> {
         let driver = self.driver_config.i2s_driver(i2s_peripheral);
-        Transfer::<I, Mode<MS, TR>> {
+        Transfer::<I, MS, TR> {
             driver,
             frame: Default::default(),
             frame_state: FrameState::LeftMsb,
@@ -159,17 +159,17 @@ enum FrameState {
 }
 use FrameState::*;
 
-pub struct Transfer<I, MODE>
+pub struct Transfer<I, MS, TR>
 where
     I: I2sPeripheral,
 {
-    driver: Driver<I, MODE>,
+    driver: Driver<I, Mode<MS, TR>>,
     frame: (i32, i32),
     frame_state: FrameState,
 }
 
 /// Constructors and Destructors
-impl<I, MS, TR> Transfer<I, Mode<MS, TR>>
+impl<I, MS, TR> Transfer<I, MS, TR>
 where
     I: I2sPeripheral,
 {
@@ -184,7 +184,7 @@ where
     }
 }
 
-impl<I, MS, TR> Transfer<I, Mode<MS, TR>>
+impl<I, MS, TR> Transfer<I, MS, TR>
 where
     I: I2sPeripheral,
 {
@@ -201,7 +201,7 @@ where
     }
 }
 
-impl<I, TR> Transfer<I, Mode<Master, TR>>
+impl<I, TR> Transfer<I, Master, TR>
 where
     I: I2sPeripheral,
 {
@@ -210,7 +210,7 @@ where
     }
 }
 
-impl<I> Transfer<I, Mode<Master, Transmit>>
+impl<I> Transfer<I, Master, Transmit>
 where
     I: I2sPeripheral,
 {
