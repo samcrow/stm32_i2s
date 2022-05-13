@@ -50,6 +50,7 @@ where
             driver,
             frame: Default::default(),
             frame_state: FrameState::LeftMsb,
+            sync: false,
             _fmt: PhantomData,
         }
     }
@@ -190,6 +191,7 @@ where
     driver: Driver<I, Mode<MS, TR>>,
     frame: FMT::AudioFrame,
     frame_state: FrameState,
+    sync: bool,
     _fmt: PhantomData<FMT>,
 }
 
@@ -225,6 +227,7 @@ where
         self.driver.disable();
         self.frame = Default::default();
         self.frame_state = FrameState::LeftMsb;
+        self.sync = false;
     }
 }
 
@@ -380,6 +383,56 @@ where
             }
         }
         Err(WouldBlock)
+    }
+}
+
+impl<I, FMT> Transfer<I, Slave, Transmit, FMT>
+where
+    I: I2sPeripheral,
+    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
+{
+    //TODO WS_line sensing is protocol dependent
+    pub fn write_iter<ITER>(&mut self, samples: ITER)
+    where
+        ITER: IntoIterator<Item = (i16, i16)>,
+    {
+        let mut samples = samples.into_iter();
+        self.driver.enable();
+        loop {
+            if self.sync {
+                let status = self.driver.status();
+                if status.txe() {
+                    let data;
+                    match self.frame_state {
+                        LeftMsb => {
+                            let smpl = samples.next();
+                            //breaking here ensure the last frame is fully transmitted
+                            if smpl.is_none() {
+                                break;
+                            }
+                            self.frame = smpl.unwrap();
+                            data = (self.frame.0) as u16;
+                            self.frame_state = RightMsb;
+                        }
+                        RightMsb => {
+                            data = (self.frame.1) as u16;
+                            self.frame_state = LeftMsb;
+                        }
+                        _ => unreachable!(),
+                    }
+                    self.driver.write_data_register(data);
+                }
+                if status.fre() || status.udr() {
+                    self.sync = false;
+                    self.driver.disable();
+                    self.frame_state = FrameState::LeftMsb;
+                }
+            } else if self.driver.ws_is_high() {
+                self.sync = true;
+                self.driver.disable();
+                self.driver.enable()
+            }
+        }
     }
 }
 
