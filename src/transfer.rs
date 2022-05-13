@@ -39,7 +39,10 @@ impl TransferConfig<Master, Transmit, Data16Channel16> {
     }
 }
 
-impl<MS, TR, FMT> TransferConfig<MS, TR, FMT> {
+impl<MS, TR, FMT> TransferConfig<MS, TR, FMT>
+where
+    FMT: DataFormat,
+{
     /// Create a `Transfer` object.
     pub fn i2s_transfer<I: I2sPeripheral>(self, i2s_peripheral: I) -> Transfer<I, MS, TR, FMT> {
         let driver = self.driver_config.i2s_driver(i2s_peripheral);
@@ -182,9 +185,10 @@ use FrameState::*;
 pub struct Transfer<I, MS, TR, FMT>
 where
     I: I2sPeripheral,
+    FMT: DataFormat,
 {
     driver: Driver<I, Mode<MS, TR>>,
-    frame: (i32, i32),
+    frame: FMT::AudioFrame,
     frame_state: FrameState,
     _fmt: PhantomData<FMT>,
 }
@@ -193,6 +197,7 @@ where
 impl<I, MS, TR, FMT> Transfer<I, MS, TR, FMT>
 where
     I: I2sPeripheral,
+    FMT: DataFormat,
 {
     /// Instantiate and configure an i2s driver.
     pub fn new(i2s_peripheral: I, config: TransferConfig<MS, TR, FMT>) -> Self {
@@ -208,6 +213,7 @@ where
 impl<I, MS, TR, FMT> Transfer<I, MS, TR, FMT>
 where
     I: I2sPeripheral,
+    FMT: DataFormat,
 {
     /// Activate the I2s interface.
     pub fn begin(&mut self) {
@@ -225,9 +231,75 @@ where
 impl<I, TR, FMT> Transfer<I, Master, TR, FMT>
 where
     I: I2sPeripheral,
+    FMT: DataFormat,
 {
     pub fn sample_rate(&self) -> u32 {
         self.driver.sample_rate()
+    }
+}
+
+impl<I, FMT> Transfer<I, Master, Transmit, FMT>
+where
+    I: I2sPeripheral,
+    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
+{
+    pub fn write_iter<ITER>(&mut self, samples: ITER)
+    where
+        ITER: IntoIterator<Item = (i16, i16)>,
+    {
+        let mut samples = samples.into_iter();
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.txe() {
+                let data;
+                match self.frame_state {
+                    LeftMsb => {
+                        let smpl = samples.next();
+                        //breaking here ensure the last frame is fully transmitted
+                        if smpl.is_none() {
+                            break;
+                        }
+                        self.frame = smpl.unwrap();
+                        data = (self.frame.0) as u16;
+                        self.frame_state = RightMsb;
+                    }
+                    RightMsb => {
+                        data = (self.frame.1) as u16;
+                        self.frame_state = LeftMsb;
+                    }
+                    _ => unreachable!(),
+                }
+                self.driver.write_data_register(data);
+            }
+        }
+    }
+
+    /// Write one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To fully transmit the frame, this function need to be continuously called until next
+    /// frame can be written.
+    pub fn write(&mut self, frame: (i16, i16)) -> nb::Result<(), Infallible> {
+        self.driver.enable();
+        let status = self.driver.status();
+        if status.txe() {
+            match self.frame_state {
+                LeftMsb => {
+                    self.frame = frame;
+                    let data = (self.frame.0) as u16;
+                    self.driver.write_data_register(data);
+                    self.frame_state = RightMsb;
+                    return Ok(());
+                }
+                RightMsb => {
+                    let data = (self.frame.1) as u16;
+                    self.driver.write_data_register(data);
+                    self.frame_state = LeftMsb;
+                }
+                _ => unreachable!(),
+            }
+        }
+        Err(WouldBlock)
     }
 }
 

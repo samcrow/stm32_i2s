@@ -64,21 +64,24 @@ impl Data16 for Data16Channel32 {}
 pub trait DataFormat: Sealed {
     /// Runtime value.
     const VALUE: crate::DataFormat;
+    /// Audio frame representation from API point of view;
+    type AudioFrame: Default;
 }
 
 macro_rules! impl_data_format{
-    ($($marker:ident),*) => {
+    ($(($marker:ident,$audio_frame:ty)),*) => {
         $(
             impl DataFormat for $marker {
                 const VALUE: crate::DataFormat = crate::DataFormat::$marker;
+                type AudioFrame = $audio_frame;
             }
         )*
     };
 }
 
 impl_data_format!(
-    Data16Channel16,
-    Data16Channel32,
-    Data24Channel32,
-    Data32Channel32
+    (Data16Channel16, (i16, i16)),
+    (Data16Channel32, (i16, i16)),
+    (Data24Channel32, (i32, i32)),
+    (Data32Channel32, (i32, i32))
 );
