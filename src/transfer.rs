@@ -13,102 +13,119 @@ use crate::*;
 ///
 ///  - `MS`: `Master` or `Slave`
 ///  - `TR`: `Transmit` or `Receive`
-pub struct TransferConfig<MS, TR> {
+///  - `FMT`: Frame Format marker, eg `Data16Channel16`
+pub struct TransferConfig<MS, TR, FMT> {
     driver_config: DriverConfig<MS, TR>,
+    _fmt: PhantomData<FMT>,
 }
 
-impl TransferConfig<Slave, Transmit> {
+impl TransferConfig<Slave, Transmit, Data16Channel16> {
     /// Create a new default slave configuration.
     pub fn new_slave() -> Self {
         Self {
             driver_config: DriverConfig::new_slave(),
+            _fmt: PhantomData,
         }
     }
 }
 
-impl TransferConfig<Master, Transmit> {
+impl TransferConfig<Master, Transmit, Data16Channel16> {
     /// Create a new default master configuration.
     pub fn new_master() -> Self {
         Self {
             driver_config: DriverConfig::new_master(),
+            _fmt: PhantomData,
         }
     }
 }
 
-impl<MS, TR> TransferConfig<MS, TR> {
+impl<MS, TR, FMT> TransferConfig<MS, TR, FMT> {
     /// Create a `Transfer` object.
-    pub fn i2s_transfer<I: I2sPeripheral>(self, i2s_peripheral: I) -> Transfer<I, MS, TR> {
+    pub fn i2s_transfer<I: I2sPeripheral>(self, i2s_peripheral: I) -> Transfer<I, MS, TR, FMT> {
         let driver = self.driver_config.i2s_driver(i2s_peripheral);
-        Transfer::<I, MS, TR> {
+        Transfer::<I, MS, TR, FMT> {
             driver,
             frame: Default::default(),
             frame_state: FrameState::LeftMsb,
+            _fmt: PhantomData,
         }
     }
 }
 
-impl Default for TransferConfig<Slave, Transmit> {
+impl Default for TransferConfig<Slave, Transmit, Data16Channel16> {
     /// Create a default configuration. It correspond to a default slave configuration.
     fn default() -> Self {
         Self::new_slave()
     }
 }
 
-impl<MS, TR> TransferConfig<MS, TR> {
+impl<MS, TR, FMT> TransferConfig<MS, TR, FMT> {
     /// Configure transfert for transmission.
-    pub fn transmit(self) -> TransferConfig<MS, Transmit> {
-        TransferConfig::<MS, Transmit> {
+    pub fn transmit(self) -> TransferConfig<MS, Transmit, FMT> {
+        TransferConfig::<MS, Transmit, FMT> {
             driver_config: self.driver_config.transmit(),
+            _fmt: PhantomData,
         }
     }
     /// TransferConfigure in transmit mode
-    pub fn receive(self) -> TransferConfig<MS, Receive> {
-        TransferConfig::<MS, Receive> {
+    pub fn receive(self) -> TransferConfig<MS, Receive, FMT> {
+        TransferConfig::<MS, Receive, FMT> {
             driver_config: self.driver_config.receive(),
+            _fmt: PhantomData,
         }
     }
     /// Select the I2s standard to use
     pub fn standard(self, standard: I2sStandard) -> Self {
-        TransferConfig::<MS, TR> {
+        TransferConfig::<MS, TR, FMT> {
             driver_config: self.driver_config.standard(standard),
+            _fmt: PhantomData,
         }
     }
     /// Select steady state clock polarity
     pub fn clock_polarity(self, polarity: ClockPolarity) -> Self {
-        TransferConfig::<MS, TR> {
+        TransferConfig::<MS, TR, FMT> {
             driver_config: self.driver_config.clock_polarity(polarity),
+            _fmt: PhantomData,
         }
     }
 
     /// Select data format
-    pub fn data_format(self, format: DataFormat) -> Self {
-        TransferConfig::<MS, TR> {
-            driver_config: self.driver_config.data_format(format),
+    #[allow(non_camel_case_types)]
+    pub fn data_format<NEW_FMT>(self, _format: NEW_FMT) -> TransferConfig<MS, TR, NEW_FMT>
+    where
+        NEW_FMT: marker::DataFormat,
+    {
+        TransferConfig::<MS, TR, NEW_FMT> {
+            driver_config: self.driver_config.data_format(NEW_FMT::VALUE),
+            _fmt: PhantomData,
         }
     }
 
     /// Convert to a slave configuration. This delete Master Only Settings.
-    pub fn to_slave(self) -> TransferConfig<Slave, TR> {
-        TransferConfig::<Slave, TR> {
+    pub fn to_slave(self) -> TransferConfig<Slave, TR, FMT> {
+        TransferConfig::<Slave, TR, FMT> {
             driver_config: self.driver_config.to_slave(),
+            _fmt: PhantomData,
         }
     }
 
     /// Convert to a master configuration.
-    pub fn to_master(self) -> TransferConfig<Master, TR> {
-        TransferConfig::<Master, TR> {
+    pub fn to_master(self) -> TransferConfig<Master, TR, FMT> {
+        TransferConfig::<Master, TR, FMT> {
             driver_config: self.driver_config.to_master(),
+            _fmt: PhantomData,
         }
     }
 }
 
-impl<TR> TransferConfig<Master, TR> {
+impl<TR, FMT> TransferConfig<Master, TR, FMT> {
     /// Enable/Disable Master Clock. Affect the effective sampling rate.
     ///
     /// This can be only set and only have meaning for Master mode.
     pub fn master_clock(self, enable: bool) -> Self {
-        TransferConfig::<Master, TR> {
+        TransferConfig::<Master, TR, FMT> {
             driver_config: self.driver_config.master_clock(enable),
+            _fmt: PhantomData,
         }
     }
 
@@ -127,15 +144,17 @@ impl<TR> TransferConfig<Master, TR> {
     ///
     /// `div` must be at least 2, otherwise the method panics.
     pub fn prescaler(self, odd: bool, div: u8) -> Self {
-        TransferConfig::<Master, TR> {
+        TransferConfig::<Master, TR, FMT> {
             driver_config: self.driver_config.prescaler(odd, div),
+            _fmt: PhantomData,
         }
     }
 
     /// Request an audio sampling frequency. The effective audio sampling frequency may differ.
     pub fn request_frequency(self, freq: u32) -> Self {
-        TransferConfig::<Master, TR> {
+        TransferConfig::<Master, TR, FMT> {
             driver_config: self.driver_config.request_frequency(freq),
+            _fmt: PhantomData,
         }
     }
 
@@ -143,8 +162,9 @@ impl<TR> TransferConfig<Master, TR> {
     ///
     /// If the required frequency can not bet set, Instantiate the driver will produce a error
     pub fn require_frequency(self, freq: u32) -> Self {
-        TransferConfig::<Master, TR> {
+        TransferConfig::<Master, TR, FMT> {
             driver_config: self.driver_config.require_frequency(freq),
+            _fmt: PhantomData,
         }
     }
 }
@@ -159,22 +179,23 @@ enum FrameState {
 }
 use FrameState::*;
 
-pub struct Transfer<I, MS, TR>
+pub struct Transfer<I, MS, TR, FMT>
 where
     I: I2sPeripheral,
 {
     driver: Driver<I, Mode<MS, TR>>,
     frame: (i32, i32),
     frame_state: FrameState,
+    _fmt: PhantomData<FMT>,
 }
 
 /// Constructors and Destructors
-impl<I, MS, TR> Transfer<I, MS, TR>
+impl<I, MS, TR, FMT> Transfer<I, MS, TR, FMT>
 where
     I: I2sPeripheral,
 {
     /// Instantiate and configure an i2s driver.
-    pub fn new(i2s_peripheral: I, config: TransferConfig<MS, TR>) -> Self {
+    pub fn new(i2s_peripheral: I, config: TransferConfig<MS, TR, FMT>) -> Self {
         config.i2s_transfer(i2s_peripheral)
     }
 
@@ -184,7 +205,7 @@ where
     }
 }
 
-impl<I, MS, TR> Transfer<I, MS, TR>
+impl<I, MS, TR, FMT> Transfer<I, MS, TR, FMT>
 where
     I: I2sPeripheral,
 {
@@ -201,7 +222,7 @@ where
     }
 }
 
-impl<I, TR> Transfer<I, Master, TR>
+impl<I, TR, FMT> Transfer<I, Master, TR, FMT>
 where
     I: I2sPeripheral,
 {
@@ -210,7 +231,7 @@ where
     }
 }
 
-impl<I> Transfer<I, Master, Transmit>
+impl<I> Transfer<I, Master, Transmit, Data32Channel32>
 where
     I: I2sPeripheral,
 {
@@ -218,43 +239,39 @@ where
     where
         ITER: IntoIterator<Item = (i32, i32)>,
     {
-        let mut frame_state = LeftMsb;
-        let mut frame = (0, 0);
         let mut samples = samples.into_iter();
-        self.driver.disable();
         self.driver.enable();
         loop {
             let status = self.driver.status();
             if status.txe() {
                 let data;
-                match frame_state {
+                match self.frame_state {
                     LeftMsb => {
                         let smpl = samples.next();
                         //breaking here ensure the last frame is fully transmitted
                         if smpl.is_none() {
                             break;
                         }
-                        frame = smpl.unwrap();
-                        data = (frame.0 as u32 >> 16) as u16;
-                        frame_state = LeftLsb;
+                        self.frame = smpl.unwrap();
+                        data = (self.frame.0 as u32 >> 16) as u16;
+                        self.frame_state = LeftLsb;
                     }
                     LeftLsb => {
-                        data = (frame.0 as u32 & 0xFFFF) as u16;
-                        frame_state = RightMsb;
+                        data = (self.frame.0 as u32 & 0xFFFF) as u16;
+                        self.frame_state = RightMsb;
                     }
                     RightMsb => {
-                        data = (frame.1 as u32 >> 16) as u16;
-                        frame_state = RightLsb;
+                        data = (self.frame.1 as u32 >> 16) as u16;
+                        self.frame_state = RightLsb;
                     }
                     RightLsb => {
-                        data = (frame.1 as u32 & 0xFFFF) as u16;
-                        frame_state = LeftMsb;
+                        data = (self.frame.1 as u32 & 0xFFFF) as u16;
+                        self.frame_state = LeftMsb;
                     }
                 }
                 self.driver.write_data_register(data);
             }
         }
-        self.driver.disable();
     }
 
     /// Write one audio frame. Activate the I2s interface if disabled.
@@ -294,7 +311,7 @@ where
     }
 }
 
-impl<I> Transfer<I, Slave, Transmit>
+impl<I> Transfer<I, Slave, Transmit, Data32Channel32>
 where
     I: I2sPeripheral,
 {
