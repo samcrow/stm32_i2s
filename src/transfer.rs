@@ -434,6 +434,44 @@ where
             }
         }
     }
+    /// Write one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To fully transmit the frame, this function need to be continuously called until next
+    /// frame can be written.
+    pub fn write(&mut self, frame: (i16, i16)) -> nb::Result<(), Infallible> {
+        self.driver.enable();
+        if self.sync {
+            let status = self.driver.status();
+            if status.txe() {
+                let data;
+                match self.frame_state {
+                    LeftMsb => {
+                        self.frame = frame;
+                        let data = (self.frame.0) as u16;
+                        self.driver.write_data_register(data);
+                        self.frame_state = RightMsb;
+                        return Ok(());
+                    }
+                    RightMsb => {
+                        data = (self.frame.1) as u16;
+                        self.frame_state = LeftMsb;
+                    }
+                    _ => unreachable!(),
+                }
+                self.driver.write_data_register(data);
+            }
+            if status.fre() || status.udr() {
+                self.sync = false;
+                self.driver.disable();
+                self.frame_state = FrameState::LeftMsb;
+            }
+        } else if self.driver.ws_is_high() {
+            self.sync = true;
+            self.driver.disable();
+            self.driver.enable()
+        }
+        Err(WouldBlock)
+    }
 }
 
 impl<I> Transfer<I, Slave, Transmit, Data32Channel32>
