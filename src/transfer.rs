@@ -519,7 +519,6 @@ where
                 if status.fre() || status.udr() {
                     self.sync = false;
                     self.driver.disable();
-                    self.frame_state = FrameState::LeftMsb;
                 }
             } else if self.driver.ws_is_high() {
                 self.driver.disable();
@@ -579,6 +578,10 @@ where
                         self.frame_state = LeftMsb;
                     }
                 }
+            }
+            if status.fre() || status.udr() {
+                self.sync = false;
+                self.driver.disable();
             }
         } else if self.driver.ws_is_high() {
             self.driver.disable();
