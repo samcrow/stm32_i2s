@@ -484,59 +484,118 @@ where
     where
         ITER: IntoIterator<Item = (i32, i32)>,
     {
-        let mut frame_state = LeftMsb;
-        let mut frame = (0, 0);
         let mut samples = samples.into_iter();
-        self.driver.disable();
-        self.driver.status();
-        // initial synchronisation
-        while !self.driver.ws_is_high() {}
-        self.driver.enable();
         loop {
-            let status = self.driver.status();
-            if status.txe() {
-                let data;
-                match (frame_state, status.chside()) {
-                    (LeftMsb, Channel::Left) => {
-                        let smpl = samples.next();
-                        //breaking here ensure the last frame is fully transmitted
-                        if smpl.is_none() {
-                            break;
+            if self.sync {
+                let status = self.driver.status();
+                if status.txe() {
+                    let data;
+                    match self.frame_state {
+                        LeftMsb => {
+                            let smpl = samples.next();
+                            //breaking here ensure the last frame is fully transmitted
+                            if smpl.is_none() {
+                                break;
+                            }
+                            self.frame = smpl.unwrap();
+                            data = (self.frame.0 as u32 >> 16) as u16;
+                            self.frame_state = LeftLsb;
                         }
-                        frame = smpl.unwrap();
-                        data = (frame.0 as u32 >> 16) as u16;
-                        frame_state = LeftLsb;
+                        LeftLsb => {
+                            data = (self.frame.0 as u32 & 0xFFFF) as u16;
+                            self.frame_state = RightMsb;
+                        }
+                        RightMsb => {
+                            data = (self.frame.1 as u32 >> 16) as u16;
+                            self.frame_state = RightLsb;
+                        }
+                        RightLsb => {
+                            data = (self.frame.1 as u32 & 0xFFFF) as u16;
+                            self.frame_state = LeftMsb;
+                        }
                     }
-                    (LeftLsb, _) => {
-                        data = (frame.0 as u32 & 0xFFFF) as u16;
-                        frame_state = RightMsb;
-                    }
-                    (RightMsb, _) => {
-                        data = (frame.1 as u32 >> 16) as u16;
-                        frame_state = RightLsb;
-                    }
-                    (RightLsb, _) => {
-                        data = (frame.1 as u32 & 0xFFFF) as u16;
-                        frame_state = LeftMsb;
-                    }
-                    _ => {
-                        data = 0;
-                        frame_state = LeftMsb;
-                    }
+                    self.driver.write_data_register(data);
                 }
-                self.driver.write_data_register(data);
-            }
-            if status.fre() {
-                rtt_target::rprintln!("{} {}", status.fre(), status.udr());
+                if status.fre() || status.udr() {
+                    self.sync = false;
+                    self.driver.disable();
+                    self.frame_state = FrameState::LeftMsb;
+                }
+            } else if self.driver.ws_is_high() {
                 self.driver.disable();
-                frame_state = LeftMsb;
-                while !self.driver.ws_is_high() {}
+                // data register may (or not) already contain data, causing uncertainty about next
+                // time txe flag is set. Writing it remove the uncertainty.
+                let smpl = samples.next();
+                //breaking here ensure the last frame is fully transmitted
+                if smpl.is_none() {
+                    break;
+                }
+                self.frame = smpl.unwrap();
+                let data = (self.frame.0 as u32 >> 16) as u16;
+                self.driver.write_data_register(data);
+                self.frame_state = LeftLsb;
+
                 self.driver.enable();
-            }
-            if status.udr() {
-                rtt_target::rprintln!("udr");
+                // ensure the ws line didn't change during sync process
+                if self.driver.ws_is_high() {
+                    self.sync = true;
+                } else {
+                    self.driver.disable();
+                }
             }
         }
-        self.driver.disable();
+    }
+
+    /// Write one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To fully transmit the frame, this function need to be continuously called until next
+    /// frame can be written.
+    pub fn write(&mut self, frame: (i32, i32)) -> nb::Result<(), Infallible> {
+        self.driver.enable();
+        if self.sync {
+            let status = self.driver.status();
+            if status.txe() {
+                match self.frame_state {
+                    LeftMsb => {
+                        self.frame = frame;
+                        let data = (self.frame.0 as u32 >> 16) as u16;
+                        self.driver.write_data_register(data);
+                        self.frame_state = LeftLsb;
+                        return Ok(());
+                    }
+                    LeftLsb => {
+                        let data = (self.frame.0 as u32 & 0xFFFF) as u16;
+                        self.driver.write_data_register(data);
+                        self.frame_state = RightMsb;
+                    }
+                    RightMsb => {
+                        let data = (self.frame.1 as u32 >> 16) as u16;
+                        self.driver.write_data_register(data);
+                        self.frame_state = RightLsb;
+                    }
+                    RightLsb => {
+                        let data = (frame.1 as u32 & 0xFFFF) as u16;
+                        self.driver.write_data_register(data);
+                        self.frame_state = LeftMsb;
+                    }
+                }
+            }
+        } else if self.driver.ws_is_high() {
+            self.driver.disable();
+            // data register may (or not) already contain data, causing uncertainty about next
+            // time txe flag is set. Writing it remove the uncertainty.
+            let data = (self.frame.0 as u32 >> 16) as u16;
+            self.driver.write_data_register(data);
+            self.frame_state = LeftLsb;
+            self.driver.enable();
+            // ensure the ws line didn't change during sync process
+            if self.driver.ws_is_high() {
+                self.sync = true;
+            } else {
+                self.driver.disable();
+            }
+            return Ok(());
+        }
+        Err(WouldBlock)
     }
 }
