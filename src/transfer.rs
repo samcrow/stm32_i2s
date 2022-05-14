@@ -521,7 +521,6 @@ where
                     self.driver.disable();
                 }
             } else if self.driver.ws_is_high() {
-                self.driver.disable();
                 // data register may (or not) already contain data, causing uncertainty about next
                 // time txe flag is set. Writing it remove the uncertainty.
                 let smpl = samples.next();
@@ -533,7 +532,6 @@ where
                 let data = (self.frame.0 as u32 >> 16) as u16;
                 self.driver.write_data_register(data);
                 self.frame_state = LeftLsb;
-
                 self.driver.enable();
                 // ensure the ws line didn't change during sync process
                 if self.driver.ws_is_high() {
@@ -583,7 +581,6 @@ where
                 self.driver.disable();
             }
         } else if self.driver.ws_is_high() {
-            self.driver.disable();
             // data register may (or not) already contain data, causing uncertainty about next
             // time txe flag is set. Writing it remove the uncertainty.
             let data = (self.frame.0 as u32 >> 16) as u16;
