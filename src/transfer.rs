@@ -550,7 +550,6 @@ where
     /// To fully transmit the frame, this function need to be continuously called until next
     /// frame can be written.
     pub fn write(&mut self, frame: (i32, i32)) -> nb::Result<(), Infallible> {
-        self.driver.enable();
         if self.sync {
             let status = self.driver.status();
             if status.txe() {
