@@ -397,7 +397,6 @@ where
         ITER: IntoIterator<Item = (i16, i16)>,
     {
         let mut samples = samples.into_iter();
-        self.driver.enable();
         loop {
             if self.sync {
                 let status = self.driver.status();
@@ -411,11 +410,11 @@ where
                                 break;
                             }
                             self.frame = smpl.unwrap();
-                            data = (self.frame.0) as u16;
+                            data = self.frame.0 as u16;
                             self.frame_state = RightMsb;
                         }
                         RightMsb => {
-                            data = (self.frame.1) as u16;
+                            data = self.frame.1 as u16;
                             self.frame_state = LeftMsb;
                         }
                         _ => unreachable!(),
@@ -425,12 +424,26 @@ where
                 if status.fre() || status.udr() {
                     self.sync = false;
                     self.driver.disable();
-                    self.frame_state = FrameState::LeftMsb;
                 }
             } else if self.driver.ws_is_high() {
-                self.sync = true;
-                self.driver.disable();
-                self.driver.enable()
+                // data register may (or not) already contain data, causing uncertainty about next
+                // time txe flag is set. Writing it remove the uncertainty.
+                let smpl = samples.next();
+                //breaking here ensure the last frame is fully transmitted
+                if smpl.is_none() {
+                    break;
+                }
+                self.frame = smpl.unwrap();
+                let data = self.frame.0 as u16;
+                self.driver.write_data_register(data);
+                self.frame_state = RightMsb;
+                self.driver.enable();
+                // ensure the ws line didn't change during sync process
+                if self.driver.ws_is_high() {
+                    self.sync = true;
+                } else {
+                    self.driver.disable();
+                }
             }
         }
     }
@@ -439,36 +452,43 @@ where
     /// To fully transmit the frame, this function need to be continuously called until next
     /// frame can be written.
     pub fn write(&mut self, frame: (i16, i16)) -> nb::Result<(), Infallible> {
-        self.driver.enable();
         if self.sync {
             let status = self.driver.status();
             if status.txe() {
-                let data;
                 match self.frame_state {
                     LeftMsb => {
                         self.frame = frame;
-                        let data = (self.frame.0) as u16;
+                        let data = self.frame.0 as u16;
                         self.driver.write_data_register(data);
                         self.frame_state = RightMsb;
                         return Ok(());
                     }
                     RightMsb => {
-                        data = (self.frame.1) as u16;
+                        let data = self.frame.1 as u16;
+                        self.driver.write_data_register(data);
                         self.frame_state = LeftMsb;
                     }
                     _ => unreachable!(),
                 }
-                self.driver.write_data_register(data);
             }
             if status.fre() || status.udr() {
                 self.sync = false;
                 self.driver.disable();
-                self.frame_state = FrameState::LeftMsb;
             }
         } else if self.driver.ws_is_high() {
-            self.sync = true;
-            self.driver.disable();
-            self.driver.enable()
+            // data register may (or not) already contain data, causing uncertainty about next
+            // time txe flag is set. Writing it remove the uncertainty.
+            let data = self.frame.0 as u16;
+            self.driver.write_data_register(data);
+            self.frame_state = RightMsb;
+            self.driver.enable();
+            // ensure the ws line didn't change during sync process
+            if self.driver.ws_is_high() {
+                self.sync = true;
+            } else {
+                self.driver.disable();
+            }
+            return Ok(());
         }
         Err(WouldBlock)
     }
