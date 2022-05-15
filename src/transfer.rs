@@ -219,6 +219,23 @@ where
     _fmt: PhantomData<FMT>,
 }
 
+impl<I, MS, TR, STD, FMT> Transfer<I, MS, TR, STD, FMT>
+where
+    I: I2sPeripheral,
+    STD: I2sStandard,
+    FMT: DataFormat,
+{
+    /// When `true` the level on WS line make start a slave. The slave must be enabled before this
+    /// level is set.
+    #[inline]
+    fn _ws_is_start(&self) -> bool {
+        match STD::WS_START_LEVEL {
+            false => self.driver.ws_is_low(),
+            true => self.driver.ws_is_high(),
+        }
+    }
+}
+
 /// Constructors and Destructors
 impl<I, MS, TR, STD, FMT> Transfer<I, MS, TR, STD, FMT>
 where
@@ -413,6 +430,7 @@ where
 impl<I, STD, FMT> Transfer<I, Slave, Transmit, STD, FMT>
 where
     I: I2sPeripheral,
+    STD: I2sStandard,
     FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
 {
     //TODO WS_line sensing is protocol dependent
@@ -449,7 +467,7 @@ where
                     self.sync = false;
                     self.driver.disable();
                 }
-            } else if self.driver.ws_is_high() {
+            } else if !self._ws_is_start() {
                 // data register may (or not) already contain data, causing uncertainty about next
                 // time txe flag is set. Writing it remove the uncertainty.
                 let smpl = samples.next();
@@ -463,7 +481,7 @@ where
                 self.frame_state = RightMsb;
                 self.driver.enable();
                 // ensure the ws line didn't change during sync process
-                if self.driver.ws_is_high() {
+                if !self._ws_is_start() {
                     self.sync = true;
                 } else {
                     self.driver.disable();
@@ -499,7 +517,7 @@ where
                 self.sync = false;
                 self.driver.disable();
             }
-        } else if self.driver.ws_is_high() {
+        } else if !self._ws_is_start() {
             // data register may (or not) already contain data, causing uncertainty about next
             // time txe flag is set. Writing it remove the uncertainty.
             let data = self.frame.0 as u16;
@@ -507,7 +525,7 @@ where
             self.frame_state = RightMsb;
             self.driver.enable();
             // ensure the ws line didn't change during sync process
-            if self.driver.ws_is_high() {
+            if !self._ws_is_start() {
                 self.sync = true;
             } else {
                 self.driver.disable();
@@ -521,6 +539,7 @@ where
 impl<I, STD> Transfer<I, Slave, Transmit, STD, Data32Channel32>
 where
     I: I2sPeripheral,
+    STD: I2sStandard,
 {
     #[inline]
     // Can't make it work now
@@ -564,7 +583,7 @@ where
                     self.sync = false;
                     self.driver.disable();
                 }
-            } else if self.driver.ws_is_high() {
+            } else if !self._ws_is_start() {
                 // data register may (or not) already contain data, causing uncertainty about next
                 // time txe flag is set. Writing it remove the uncertainty.
                 let smpl = samples.next();
@@ -578,7 +597,7 @@ where
                 self.frame_state = LeftLsb;
                 self.driver.enable();
                 // ensure the ws line didn't change during sync process
-                if self.driver.ws_is_high() {
+                if !self._ws_is_start() {
                     self.sync = true;
                 } else {
                     self.driver.disable();
@@ -624,7 +643,7 @@ where
                 self.sync = false;
                 self.driver.disable();
             }
-        } else if self.driver.ws_is_high() {
+        } else if !self._ws_is_start() {
             // data register may (or not) already contain data, causing uncertainty about next
             // time txe flag is set. Writing it remove the uncertainty.
             let data = (self.frame.0 as u32 >> 16) as u16;
@@ -632,7 +651,7 @@ where
             self.frame_state = LeftLsb;
             self.driver.enable();
             // ensure the ws line didn't change during sync process
-            if self.driver.ws_is_high() {
+            if !self._ws_is_start() {
                 self.sync = true;
             } else {
                 self.driver.disable();
