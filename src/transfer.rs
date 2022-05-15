@@ -661,3 +661,80 @@ where
         Err(WouldBlock)
     }
 }
+
+impl<I, STD, FMT> Transfer<I, Master, Receive, STD, FMT>
+where
+    I: I2sPeripheral,
+    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
+{
+    /// Read samples while predicate return `true`.
+    ///
+    /// The given closure must not block, otherwise communication problems may occur.
+    pub fn read_while<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut((i16, i16)) -> bool,
+    {
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.rxne() {
+                match self.frame_state {
+                    LeftMsb => {
+                        let data = self.driver.read_data_register();
+                        self.frame.0 = data as i16;
+                        self.frame_state = RightMsb;
+                    }
+                    RightMsb => {
+                        let data = self.driver.read_data_register();
+                        self.frame.1 = data as i16;
+                        self.frame_state = LeftMsb;
+                        if !predicate(self.frame) {
+                            return;
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            if status.ovr() {
+                self.driver.read_data_register();
+                self.driver.status();
+                self.driver.disable();
+                self.driver.enable();
+                self.frame_state = LeftMsb;
+            }
+        }
+    }
+
+    /// Read one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To get the audio frame, this function need to be continuously called until the frame is
+    /// returned
+    pub fn read(&mut self) -> nb::Result<(i16, i16), Infallible> {
+        self.driver.enable();
+        let status = self.driver.status();
+        if status.rxne() {
+            match self.frame_state {
+                LeftMsb => {
+                    let data = self.driver.read_data_register();
+                    self.frame.0 = data as i16;
+                    self.frame_state = RightMsb;
+                }
+                RightMsb => {
+                    let data = self.driver.read_data_register();
+                    self.frame.1 = data as i16;
+                    self.frame_state = LeftMsb;
+                    return Ok(self.frame);
+                }
+                _ => unreachable!(),
+            }
+        }
+        if status.ovr() {
+            self.driver.read_data_register();
+            self.driver.status();
+            self.driver.disable();
+            self.driver.enable();
+            self.frame_state = LeftMsb;
+        }
+        Err(WouldBlock)
+    }
+}
