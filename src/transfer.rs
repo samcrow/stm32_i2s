@@ -4,6 +4,7 @@
 use core::convert::Infallible;
 use nb::Error::WouldBlock;
 
+use crate::Channel::*;
 use crate::Config as DriverConfig;
 use crate::I2sDriver as Driver;
 use crate::*;
@@ -197,7 +198,7 @@ impl<TR, STD, FMT> TransferConfig<Master, TR, STD, FMT> {
 }
 
 /// Part of the frame we currently transmitting or receiving
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum FrameState {
     LeftMsb,
     LeftLsb,
@@ -734,6 +735,95 @@ where
             self.driver.disable();
             self.driver.enable();
             self.frame_state = LeftMsb;
+        }
+        Err(WouldBlock)
+    }
+}
+
+impl<I, STD> Transfer<I, Master, Receive, STD, Data32Channel32>
+where
+    I: I2sPeripheral,
+    STD: ChannelFlag,
+{
+    /// Read samples while predicate return `true`.
+    ///
+    /// The given closure must not block, otherwise communication problems may occur.
+    pub fn read_while<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut((i32, i32)) -> bool,
+    {
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.rxne() {
+                let data = self.driver.read_data_register();
+                match (self.frame_state, status.chside()) {
+                    (LeftMsb, Left) => {
+                        self.frame.0 = (data as i32) << 16;
+                        self.frame_state = LeftLsb;
+                    }
+                    (LeftLsb, Left) => {
+                        self.frame.0 |= data as i32;
+                        self.frame_state = RightMsb;
+                    }
+                    (RightMsb, Right) => {
+                        self.frame.1 = (data as i32) << 16;
+                        self.frame_state = RightLsb;
+                    }
+                    (RightLsb, Right) => {
+                        self.frame.1 |= data as i32;
+                        self.frame_state = LeftMsb;
+                        if !predicate(self.frame) {
+                            return;
+                        }
+                    }
+                    // in case of ovr this resynchronize at start of new frame
+                    _ => self.frame_state = LeftMsb,
+                }
+            }
+            if status.ovr() {
+                self.driver.read_data_register();
+                self.driver.status();
+                self.frame_state = LeftMsb;
+            }
+        }
+    }
+
+    /// Read one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To get the audio frame, this function need to be continuously called until the frame is
+    /// returned
+    pub fn read(&mut self) -> nb::Result<(i32, i32), Infallible> {
+        self.driver.enable();
+        let status = self.driver.status();
+        if status.rxne() {
+            let data = self.driver.read_data_register();
+            match (self.frame_state, status.chside()) {
+                (LeftMsb, Left) => {
+                    self.frame.0 = (data as i32) << 16;
+                    self.frame_state = LeftLsb;
+                }
+                (LeftLsb, Left) => {
+                    self.frame.0 |= data as i32;
+                    self.frame_state = RightMsb;
+                }
+                (RightMsb, Right) => {
+                    self.frame.1 = (data as i32) << 16;
+                    self.frame_state = RightLsb;
+                }
+                (RightLsb, Right) => {
+                    self.frame.1 |= data as i32;
+                    self.frame_state = LeftMsb;
+                    return Ok(self.frame);
+                }
+                // in case of ovr this resynchronize at start of new frame
+                _ => self.frame_state = LeftMsb,
+            }
+            if status.ovr() {
+                self.driver.read_data_register();
+                self.driver.status();
+                self.frame_state = LeftMsb;
+            }
         }
         Err(WouldBlock)
     }

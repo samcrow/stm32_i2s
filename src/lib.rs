@@ -33,7 +33,7 @@ use self::pac::spi1::{i2spr, sr};
 //use crate::pac::spi1::i2scfgr::I2SCFG_A;
 
 /// The channel associated with a sample
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Channel {
     /// Left channel (word select low)
     Left,

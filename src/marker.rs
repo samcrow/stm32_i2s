@@ -139,3 +139,17 @@ impl_i2s_standard!(
     (PcmShortSync, true),
     (PcmLongSync, true)
 );
+
+/// Marker trait for i2s standard where the CHSIDE status flag is a relevant channel indication
+/// about data been received or to be transmitted.
+pub trait ChannelFlag: I2sStandard + Sealed {}
+
+impl ChannelFlag for Philips {}
+impl ChannelFlag for Msb {}
+impl ChannelFlag for Lsb {}
+
+/// Marker trait for i2s standard where the CHSIDE status flag is meaningless.
+pub trait NoChannelFlag: I2sStandard + Sealed {}
+
+impl NoChannelFlag for PcmShortSync {}
+impl NoChannelFlag for PcmLongSync {}
