@@ -667,6 +667,7 @@ impl<I, STD, FMT> Transfer<I, Master, Receive, STD, FMT>
 where
     I: I2sPeripheral,
     FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
+    STD: ChannelFlag,
 {
     /// Read samples while predicate return `true`.
     ///
@@ -679,13 +680,13 @@ where
         loop {
             let status = self.driver.status();
             if status.rxne() {
-                match self.frame_state {
-                    LeftMsb => {
+                match status.chside() {
+                    Left => {
                         let data = self.driver.read_data_register();
                         self.frame.0 = data as i16;
                         self.frame_state = RightMsb;
                     }
-                    RightMsb => {
+                    Right => {
                         let data = self.driver.read_data_register();
                         self.frame.1 = data as i16;
                         self.frame_state = LeftMsb;
@@ -693,15 +694,11 @@ where
                             return;
                         }
                     }
-                    _ => unreachable!(),
                 }
             }
             if status.ovr() {
                 self.driver.read_data_register();
                 self.driver.status();
-                self.driver.disable();
-                self.driver.enable();
-                self.frame_state = LeftMsb;
             }
         }
     }
@@ -714,27 +711,23 @@ where
         self.driver.enable();
         let status = self.driver.status();
         if status.rxne() {
-            match self.frame_state {
-                LeftMsb => {
+            match status.chside() {
+                Left => {
                     let data = self.driver.read_data_register();
                     self.frame.0 = data as i16;
                     self.frame_state = RightMsb;
                 }
-                RightMsb => {
+                Right => {
                     let data = self.driver.read_data_register();
                     self.frame.1 = data as i16;
                     self.frame_state = LeftMsb;
                     return Ok(self.frame);
                 }
-                _ => unreachable!(),
             }
         }
         if status.ovr() {
             self.driver.read_data_register();
             self.driver.status();
-            self.driver.disable();
-            self.driver.enable();
-            self.frame_state = LeftMsb;
         }
         Err(WouldBlock)
     }
