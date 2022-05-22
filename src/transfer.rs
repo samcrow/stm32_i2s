@@ -922,3 +922,117 @@ where
         Err(WouldBlock)
     }
 }
+
+impl<I, STD> Transfer<I, Slave, Receive, STD, Data32Channel32>
+where
+    I: I2sPeripheral,
+    STD: ChannelFlag,
+{
+    /// Read samples while predicate return `true`.
+    ///
+    /// The given closure must not block, otherwise communication problems may occur.
+    pub fn read_while<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut((i32, i32)) -> bool,
+    {
+        loop {
+            if self.sync {
+                let status = self.driver.status();
+                if status.rxne() {
+                    let data = self.driver.read_data_register();
+                    match self.frame_state {
+                        LeftMsb => {
+                            self.frame.0 = (data as i32) << 16;
+                            self.frame_state = LeftLsb;
+                        }
+                        LeftLsb => {
+                            self.frame.0 |= data as i32;
+                            self.frame_state = RightMsb;
+                        }
+                        RightMsb => {
+                            self.frame.1 = (data as i32) << 16;
+                            self.frame_state = RightLsb;
+                        }
+                        RightLsb => {
+                            self.frame.1 |= data as i32;
+                            self.frame_state = LeftMsb;
+                            if !predicate(self.frame) {
+                                return;
+                            }
+                        }
+                    }
+                }
+                if status.fre() || status.ovr() {
+                    self.sync = false;
+                    self.driver.read_data_register();
+                    self.driver.status();
+                    self.driver.disable();
+                }
+            } else if !self._ws_is_start() {
+                self.frame_state = LeftMsb;
+                self.driver.enable();
+                // ensure the ws line didn't change during sync process
+                if !self._ws_is_start() {
+                    self.sync = true;
+                } else {
+                    self.driver.disable();
+                }
+            }
+        }
+    }
+
+    /// Read one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To get the audio frame, this function need to be continuously called until the frame is
+    /// returned
+    pub fn read(&mut self) -> nb::Result<(i32, i32), Infallible> {
+        if !self.sync {
+            self.driver.disable();
+            self.frame_state = RightMsb;
+        }
+        if self.sync {
+            let status = self.driver.status();
+            if status.rxne() {
+                let data = self.driver.read_data_register();
+                match self.frame_state {
+                    LeftMsb => {
+                        self.frame.0 = (data as i32) << 16;
+                        self.frame_state = LeftLsb;
+                    }
+                    LeftLsb => {
+                        self.frame.0 |= data as i32;
+                        self.frame_state = RightMsb;
+                    }
+                    RightMsb => {
+                        self.frame.1 = (data as i32) << 16;
+                        self.frame_state = RightLsb;
+                    }
+                    RightLsb => {
+                        self.frame.1 |= data as i32;
+                        self.frame_state = LeftMsb;
+                        return Ok(self.frame);
+                    }
+                }
+            }
+            if status.fre() || status.ovr() {
+                self.sync = false;
+                //self.driver.read_data_register();
+                //self.driver.status();
+                self.driver.disable();
+            }
+        } else if !self._ws_is_start() {
+            //defmt::println!("sycing");
+            self.frame_state = RightMsb;
+            self.driver.enable();
+            self.driver.read_data_register();
+            self.driver.status();
+            // ensure the ws line didn't change during sync process
+            if !self._ws_is_start() {
+                self.sync = true;
+            } else {
+                self.driver.disable();
+            }
+        }
+        Err(WouldBlock)
+    }
+}
