@@ -2,12 +2,16 @@
 //!
 //!
 use core::convert::Infallible;
+use core::marker::PhantomData;
+
 use nb::Error::WouldBlock;
 
-use crate::Channel::*;
-use crate::Config as DriverConfig;
-use crate::I2sDriver as Driver;
-use crate::*;
+use crate::driver::Channel::*;
+use crate::driver::ClockPolarity;
+use crate::driver::Config as DriverConfig;
+use crate::driver::I2sDriver as Driver;
+use crate::marker::{self, *};
+use crate::I2sPeripheral;
 
 #[derive(Debug, Clone, Copy)]
 /// I2s TransferConfiguration builder.
@@ -207,6 +211,15 @@ enum FrameState {
 }
 use FrameState::*;
 
+/// Abstraction allowing to transmit/receive I2S data while erasing hardware details.
+///
+/// This type is meant to implement the Upcoming I2S embbeded-hal in the future.
+///
+/// Note: current implementation never fail when an error is detected, it try to recover intead. As
+/// result, data received or transmitted may corrupted. This choice has been made because:
+///  - corrupted data can't produce an invalid value that can cause undefined behavior,
+///  - audio quality is equally degraded by missing or corrupted data,
+///  - it's easier to use.
 pub struct Transfer<I, MS, TR, STD, FMT>
 where
     I: I2sPeripheral,

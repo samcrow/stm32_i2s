@@ -1,4 +1,4 @@
-//! Markers for [`Config`](super::Config) and [`I2sDriver`](super::I2sDriver)
+//! Markers used in this crate.
 use core::marker::PhantomData;
 
 use crate::sealed::Sealed;
@@ -88,7 +88,7 @@ impl Data16 for Data16Channel32 {}
 /// Trait for marker indicating a DataFormat
 pub trait DataFormat: Sealed {
     /// Runtime value.
-    const VALUE: crate::DataFormat;
+    const VALUE: crate::driver::DataFormat;
     /// Audio frame representation from API point of view;
     type AudioFrame: Default;
 }
@@ -97,7 +97,7 @@ macro_rules! impl_data_format{
     ($(($marker:ident,$audio_frame:ty)),*) => {
         $(
             impl DataFormat for $marker {
-                const VALUE: crate::DataFormat = crate::DataFormat::$marker;
+                const VALUE: crate::driver::DataFormat = crate::driver::DataFormat::$marker;
                 type AudioFrame = $audio_frame;
             }
         )*
@@ -114,7 +114,7 @@ impl_data_format!(
 /// Trait for marker indicating a i2s standard.
 pub trait I2sStandard: Sealed {
     /// Runtime value.
-    const VALUE: crate::I2sStandard;
+    const VALUE: crate::driver::I2sStandard;
     /// WS line level that make start the i2s device. `true` mean high level.
     ///
     /// Slave need to be enabled when WS line is **not** at this level.
@@ -125,7 +125,7 @@ macro_rules! impl_i2s_standard{
     ($(($marker:ident,$ws_start_level:literal)),*) => {
         $(
             impl I2sStandard for $marker {
-                const VALUE: crate::I2sStandard = crate::I2sStandard::$marker;
+                const VALUE: crate::driver::I2sStandard = crate::driver::I2sStandard::$marker;
                 const WS_START_LEVEL: bool = $ws_start_level;
             }
         )*
