@@ -151,13 +151,13 @@ pub enum ClockPolarity {
 /// Data length to be transferred and channel length
 #[derive(Debug, Clone, Copy)]
 pub enum DataFormat {
-    /// 16 bit date length on 16 bit wide channel
+    /// 16 bit data length on 16 bit wide channel
     Data16Channel16,
-    /// 16 bit date length on 32 bit wide channel
+    /// 16 bit data length on 32 bit wide channel
     Data16Channel32,
-    /// 24 bit date length on 32 bit wide channel
+    /// 24 bit data length on 32 bit wide channel
     Data24Channel32,
-    /// 32 bit date length on 32 bit wide channel
+    /// 32 bit data length on 32 bit wide channel
     Data32Channel32,
 }
 
@@ -297,7 +297,11 @@ fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
 }
 
 impl<MS, TR> Config<MS, TR> {
-    /// Instantiate the driver.
+    /// Instantiate the driver by wrapping the given [`I2sPeripheral`].
+    ///
+    /// # Panics
+    ///
+    /// This method panics if an exact frequency is required and that frequency cannot be set.
     pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, Mode<MS, TR>> {
         let _mode = PhantomData;
         let driver = I2sDriver::<I, Mode<MS, TR>> {
@@ -498,7 +502,7 @@ impl<TR> Config<Master, TR> {
 
     /// Require exactly this audio sampling frequency.
     ///
-    /// If the required frequency can not bet set, Instantiate the driver will produce a error
+    /// If the required frequency can not bet set, Instantiate the driver will panics.
     pub fn require_frequency(mut self, freq: u32) -> Self {
         self.frequency = Frequency::Require(freq);
         self
@@ -507,7 +511,7 @@ impl<TR> Config<Master, TR> {
 
 /// Driver of a SPI peripheral in I2S mode.
 ///
-/// Meant for avanced usage, for example using interrupt or DMA.
+/// Meant for advanced usage, for example using interrupt or DMA.
 ///
 /// # Example
 ///
@@ -537,7 +541,12 @@ impl<I, MS, TR> I2sDriver<I, Mode<MS, TR>>
 where
     I: I2sPeripheral,
 {
-    /// Instantiate and configure an i2s driver.
+    /// Instantiate an i2s driver from an [`I2sPeripheral`] object and a configuration.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if an exact frequency is required by the Config and that frequency
+    /// can not be set.
     pub fn new(i2s_peripheral: I, config: Config<MS, TR>) -> Self {
         config.i2s_driver(i2s_peripheral)
     }
