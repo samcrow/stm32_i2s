@@ -52,7 +52,11 @@ impl<MS, TR, STD, FMT> TransferConfig<MS, TR, STD, FMT>
 where
     FMT: DataFormat,
 {
-    /// Create a `Transfer` object.
+    /// Create a `Transfer` object around an [`I2sPeripheral`] object.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if an exact frequency is required  and that frequency can not be set.
     pub fn i2s_transfer<I: I2sPeripheral>(
         self,
         i2s_peripheral: I,
@@ -191,7 +195,7 @@ impl<TR, STD, FMT> TransferConfig<Master, TR, STD, FMT> {
 
     /// Require exactly this audio sampling frequency.
     ///
-    /// If the required frequency can not bet set, Instantiate the driver will produce a error
+    /// If the required frequency can not bet set, Instantiate the driver will panics.
     pub fn require_frequency(self, freq: u32) -> Self {
         TransferConfig::<Master, TR, STD, FMT> {
             driver_config: self.driver_config.require_frequency(freq),
@@ -256,7 +260,12 @@ where
     I: I2sPeripheral,
     FMT: DataFormat,
 {
-    /// Instantiate and configure an i2s driver.
+    /// Instantiate and configure an i2s driver around an [`I2sPeripheral`].
+    ///
+    /// # Panics
+    ///
+    /// This method panics if an exact frequency is required by the config and that frequency can
+    /// not be set.
     pub fn new(i2s_peripheral: I, config: TransferConfig<MS, TR, STD, FMT>) -> Self {
         config.i2s_transfer(i2s_peripheral)
     }
