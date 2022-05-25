@@ -168,11 +168,11 @@ impl Default for DataFormat {
 }
 
 #[derive(Debug, Clone, Copy)]
-/// I2s Configuration builder.
+/// I2s configuration.
 ///
 ///  - `MS`: `Master` or `Slave`
 ///  - `TR`: `Transmit` or `Receive`
-pub struct Config<MS, TR> {
+pub struct I2sDriverConfig<MS, TR> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,
     standard: I2sStandard,
@@ -185,7 +185,7 @@ pub struct Config<MS, TR> {
     _tr: PhantomData<TR>,
 }
 
-impl Config<Slave, Transmit> {
+impl I2sDriverConfig<Slave, Transmit> {
     /// Create a new default slave configuration.
     pub fn new_slave() -> Self {
         Self {
@@ -202,7 +202,7 @@ impl Config<Slave, Transmit> {
     }
 }
 
-impl Config<Master, Transmit> {
+impl I2sDriverConfig<Master, Transmit> {
     /// Create a new default master configuration.
     pub fn new_master() -> Self {
         Self {
@@ -296,7 +296,7 @@ fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
     }
 }
 
-impl<MS, TR> Config<MS, TR> {
+impl<MS, TR> I2sDriverConfig<MS, TR> {
     /// Instantiate the driver by wrapping the given [`I2sPeripheral`].
     ///
     /// # Panics
@@ -360,17 +360,17 @@ impl<MS, TR> Config<MS, TR> {
     }
 }
 
-impl Default for Config<Slave, Transmit> {
+impl Default for I2sDriverConfig<Slave, Transmit> {
     /// Create a default configuration. It correspond to a default slave configuration.
     fn default() -> Self {
         Self::new_slave()
     }
 }
 
-impl<MS, TR> Config<MS, TR> {
-    /// Configure in transmit mode
-    pub fn transmit(self) -> Config<MS, Transmit> {
-        Config::<MS, Transmit> {
+impl<MS, TR> I2sDriverConfig<MS, TR> {
+    /// Configure driver in transmit mode
+    pub fn transmit(self) -> I2sDriverConfig<MS, Transmit> {
+        I2sDriverConfig::<MS, Transmit> {
             slave_or_master: self.slave_or_master,
             transmit_or_receive: TransmitOrReceive::Transmit,
             standard: self.standard,
@@ -382,9 +382,9 @@ impl<MS, TR> Config<MS, TR> {
             _tr: PhantomData,
         }
     }
-    /// Configure in transmit mode
-    pub fn receive(self) -> Config<MS, Receive> {
-        Config::<MS, Receive> {
+    /// Configure driver in receive mode
+    pub fn receive(self) -> I2sDriverConfig<MS, Receive> {
+        I2sDriverConfig::<MS, Receive> {
             slave_or_master: self.slave_or_master,
             transmit_or_receive: TransmitOrReceive::Receive,
             standard: self.standard,
@@ -416,7 +416,7 @@ impl<MS, TR> Config<MS, TR> {
     }
 
     /// Convert to a slave configuration. This delete Master Only Settings.
-    pub fn to_slave(self) -> Config<Slave, TR> {
+    pub fn to_slave(self) -> I2sDriverConfig<Slave, TR> {
         let Self {
             transmit_or_receive,
             standard,
@@ -424,7 +424,7 @@ impl<MS, TR> Config<MS, TR> {
             data_format,
             ..
         } = self;
-        Config::<Slave, TR> {
+        I2sDriverConfig::<Slave, TR> {
             slave_or_master: SlaveOrMaster::Slave,
             transmit_or_receive,
             standard,
@@ -438,7 +438,7 @@ impl<MS, TR> Config<MS, TR> {
     }
 
     /// Convert to a master configuration.
-    pub fn to_master(self) -> Config<Master, TR> {
+    pub fn to_master(self) -> I2sDriverConfig<Master, TR> {
         let Self {
             transmit_or_receive,
             standard,
@@ -448,7 +448,7 @@ impl<MS, TR> Config<MS, TR> {
             frequency,
             ..
         } = self;
-        Config::<Master, TR> {
+        I2sDriverConfig::<Master, TR> {
             slave_or_master: SlaveOrMaster::Master,
             transmit_or_receive,
             standard,
@@ -462,7 +462,7 @@ impl<MS, TR> Config<MS, TR> {
     }
 }
 
-impl<TR> Config<Master, TR> {
+impl<TR> I2sDriverConfig<Master, TR> {
     /// Enable/Disable Master Clock. Affect the effective sampling rate.
     ///
     /// This can be only set and only have meaning for Master mode.
@@ -545,9 +545,9 @@ where
     ///
     /// # Panics
     ///
-    /// This method panics if an exact frequency is required by the Config and that frequency
-    /// can not be set.
-    pub fn new(i2s_peripheral: I, config: Config<MS, TR>) -> Self {
+    /// This method panics if an exact frequency is required by the configuration and that
+    /// frequency can not be set.
+    pub fn new(i2s_peripheral: I, config: I2sDriverConfig<MS, TR>) -> Self {
         config.i2s_driver(i2s_peripheral)
     }
 
@@ -565,7 +565,7 @@ where
     #[allow(non_camel_case_types)]
     pub fn reconfigure<NEW_MS, NEW_TR>(
         self,
-        config: Config<NEW_MS, NEW_TR>,
+        config: I2sDriverConfig<NEW_MS, NEW_TR>,
     ) -> I2sDriver<I, Mode<NEW_MS, NEW_TR>> {
         let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)

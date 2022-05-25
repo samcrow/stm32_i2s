@@ -8,8 +8,8 @@ use nb::Error::WouldBlock;
 
 use crate::driver::Channel::*;
 use crate::driver::ClockPolarity;
-use crate::driver::Config as DriverConfig;
 use crate::driver::I2sDriver as Driver;
+use crate::driver::I2sDriverConfig as DriverConfig;
 use crate::marker::{self, *};
 use crate::I2sPeripheral;
 
