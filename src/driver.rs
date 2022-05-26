@@ -9,9 +9,9 @@ use crate::I2sPeripheral;
 /// The channel associated with a sample
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Channel {
-    /// Left channel (word select low)
+    /// Left channel
     Left,
-    /// Right channel (word select high)
+    /// Right channel
     Right,
 }
 
