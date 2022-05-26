@@ -1,4 +1,5 @@
-//! Markers used in this crate.
+//! Markers for [`I2sDriver`](crate::driver::I2sDriver),
+//! [`I2sTransfer`](crate::transfer::I2sTransfer) and their respective configuration.
 use core::marker::PhantomData;
 
 use crate::sealed::Sealed;
