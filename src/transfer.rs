@@ -1,6 +1,29 @@
-//! Abstraction for I2S transfer
+//! Abstraction to transfer I2S data.
 //!
+//! API of this module give abstractions allowing to transfer I2S audio data while hiding the
+//! hardware details. This module also have basis to implement the upcoming embedded-hale I2s
+//! trait. The job is mainly done by [`I2sTransfer`], a type that wrap an I2sPeripheral to control
+//! it.
 //!
+//! # Configure and instantiate transfer.
+//!
+//! [`I2sTransferConfig`] is used to create configuration of the i2s transfer:
+//! ```no_run
+//! let transfer_config = I2sTransferConfig::new_master()
+//!     .receive()
+//!     .standard(marker::Philips)
+//!     .data_format(marker::Data24Channel32)
+//!     .master_clock(true)
+//!     .request_frequency(48_000);
+//! ```
+//! Then you can instantiate the transfer around an `I2sPeripheral`:
+//! ```no_run
+//! // instantiate from configuration
+//! let transfer = transfer_config.i2s_driver(i2s_peripheral);
+//!
+//! // alternate way
+//! let transfer = I2sTransfer::new(i2s_peripheral, transfer_config);
+//! ```
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
