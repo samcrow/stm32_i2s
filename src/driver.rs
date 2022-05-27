@@ -194,10 +194,13 @@ impl Default for DataFormat {
 }
 
 #[derive(Debug, Clone, Copy)]
-/// I2s configuration. Can be used as an i2s driver builder.
+/// I2s driver configuration. Can be used as an i2s driver builder.
 ///
 ///  - `MS`: `Master` or `Slave`
 ///  - `TR`: `Transmit` or `Receive`
+///
+/// **Note:** because of it's typestate, methods of this type don't change variable content, they
+/// return a new value instead.
 pub struct I2sDriverConfig<MS, TR> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,

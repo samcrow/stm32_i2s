@@ -43,6 +43,9 @@ use crate::I2sPeripheral;
 ///  - `TR`: `Transmit` or `Receive`
 ///  - `STD`: I2S standard, eg `Philips`
 ///  - `FMT`: Frame Format marker, eg `Data16Channel16`
+///
+/// **Note:** because of it's typestate, methods of this type don't change variable content, they
+/// return a new value instead.
 pub struct I2sTransferConfig<MS, TR, STD, FMT> {
     driver_config: DriverConfig<MS, TR>,
     _std: PhantomData<STD>,
