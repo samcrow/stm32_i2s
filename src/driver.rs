@@ -1,4 +1,30 @@
-//! Type definition for I2S driver.
+//! Types definitions for I2S driver.
+//!
+//! API of this module provides thin abstractions  that try to give access to relevant hardware
+//! details while preventing irrelevant or meaningless operation. This allow precise and concise
+//! control of a SPI/I2S peripheral. It's meant for advanced usage, for example with interrupt or
+//! DMA. The job is mainly done by [`I2sDriver`], a type that wrap an [`I2sPeripheral`] to control
+//! it.
+//!
+//! # Configure and instantiate driver.
+//!
+//! [`I2sDriverConfig`] is used to create configuration of the i2s driver:
+//! ```no_run
+//! let driver_config = I2sDriverConfig::new_master()
+//!     .receive()
+//!     .standard(I2sStandard::Philips)
+//!     .data_format(DataFormat::Data24Channel32)
+//!     .master_clock(true)
+//!     .request_frequency(48_000);
+//! ```
+//! Then you can instantiate the driver around an `I2sPeripheral`:
+//! ```no_run
+//! // instantiate from configuration
+//! let driver = driver_config.i2s_driver(i2s_peripheral);
+//!
+//! // alternate way
+//! let driver = I2sDriver::new(i2s_peripheral, driver_config);
+//! ```
 use core::marker::PhantomData;
 
 use crate::marker::*;
@@ -168,7 +194,7 @@ impl Default for DataFormat {
 }
 
 #[derive(Debug, Clone, Copy)]
-/// I2s configuration.
+/// I2s configuration. Can be used as an i2s driver builder.
 ///
 ///  - `MS`: `Master` or `Slave`
 ///  - `TR`: `Transmit` or `Receive`
@@ -284,7 +310,7 @@ fn _set_require_frequency(
     };
 }
 
-// set _set_request_frequency for explanation
+// see _set_request_frequency for explanation
 fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
     if mclk {
         return 256;
@@ -512,14 +538,6 @@ impl<TR> I2sDriverConfig<Master, TR> {
 /// Driver of a SPI peripheral in I2S mode.
 ///
 /// Meant for advanced usage, for example using interrupt or DMA.
-///
-/// # Example
-///
-/// TODO
-///
-/// ```no_run
-/// ```
-///
 pub struct I2sDriver<I, MODE> {
     i2s_peripheral: I,
 
