@@ -123,7 +123,7 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
             _fmt: PhantomData,
         }
     }
-    /// Select the I2s standard to use.
+    /// Select the I2s standard to use. The parameter is just a marker implementing [`I2sStandard`].
     #[allow(non_camel_case_types)]
     pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sTransferConfig<MS, TR, NEW_STD, FMT>
     where
@@ -144,7 +144,7 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
         }
     }
 
-    /// Select data format
+    /// Select data format. The parameter is just a marker implementing [`DataFormat`].
     #[allow(non_camel_case_types)]
     pub fn data_format<NEW_FMT>(self, _format: NEW_FMT) -> I2sTransferConfig<MS, TR, STD, NEW_FMT>
     where
