@@ -12,7 +12,7 @@
 //! ```no_run
 //! let driver_config = I2sDriverConfig::new_master()
 //!     .receive()
-//!     .standard(I2sStandard::Philips)
+//!     .standard(Philips)
 //!     .data_format(DataFormat::Data24Channel32)
 //!     .master_clock(true)
 //!     .request_frequency(48_000);

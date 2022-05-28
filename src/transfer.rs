@@ -11,8 +11,8 @@
 //! ```no_run
 //! let transfer_config = I2sTransferConfig::new_master()
 //!     .receive()
-//!     .standard(marker::Philips)
-//!     .data_format(marker::Data24Channel32)
+//!     .standard(Philips)
+//!     .data_format(Data24Channel32)
 //!     .master_clock(true)
 //!     .request_frequency(48_000);
 //! ```
