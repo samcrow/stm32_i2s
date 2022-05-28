@@ -59,12 +59,17 @@ impl<MS, TR, STD> Status<MS, TR, STD> {
     pub fn bsy(&self) -> bool {
         self.value.bsy().bit()
     }
+}
 
-    /// Get the CHSIDE flag. It indicate the channel has been received or to be transmitted. Have
-    /// no meaning with PCM standard.
+impl<MS, TR, STD> Status<MS, TR, STD>
+where
+    STD: marker::ChannelFlag,
+{
+    /// Get the CHSIDE flag. It indicate the channel has been received or to be transmitted.
     ///
     /// This flag is updated when TXE or RXNE flags are set. This flag is meaningless and therefore
-    /// not reliable is case of error or when using the PCM standard.
+    /// not reliable is case of error. This flag is not available in PCM standard because it's also
+    /// meaningless in this case.
     pub fn chside(&self) -> Channel {
         match self.value.chside().bit() {
             false => Channel::Left,
