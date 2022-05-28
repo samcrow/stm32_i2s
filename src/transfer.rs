@@ -48,8 +48,7 @@ pub use crate::marker::{self, *};
 /// **Note:** because of it's typestate, methods of this type don't change variable content, they
 /// return a new value instead.
 pub struct I2sTransferConfig<MS, TR, STD, FMT> {
-    driver_config: DriverConfig<MS, TR>,
-    _std: PhantomData<STD>,
+    driver_config: DriverConfig<MS, TR, STD>,
     _fmt: PhantomData<FMT>,
 }
 
@@ -58,7 +57,6 @@ impl I2sTransferConfig<Slave, Transmit, Philips, Data16Channel16> {
     pub fn new_slave() -> Self {
         Self {
             driver_config: DriverConfig::new_slave(),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -69,7 +67,6 @@ impl I2sTransferConfig<Master, Transmit, Philips, Data16Channel16> {
     pub fn new_master() -> Self {
         Self {
             driver_config: DriverConfig::new_master(),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -94,7 +91,6 @@ where
             frame: Default::default(),
             frame_state: FrameState::LeftMsb,
             sync: false,
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -112,7 +108,6 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     pub fn transmit(self) -> I2sTransferConfig<MS, Transmit, STD, FMT> {
         I2sTransferConfig::<MS, Transmit, STD, FMT> {
             driver_config: self.driver_config.transmit(),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -120,7 +115,6 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     pub fn receive(self) -> I2sTransferConfig<MS, Receive, STD, FMT> {
         I2sTransferConfig::<MS, Receive, STD, FMT> {
             driver_config: self.driver_config.receive(),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -131,8 +125,7 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
         NEW_STD: marker::I2sStandard,
     {
         I2sTransferConfig::<MS, TR, NEW_STD, FMT> {
-            driver_config: self.driver_config.standard(NEW_STD::VALUE),
-            _std: PhantomData,
+            driver_config: self.driver_config.standard(_standard),
             _fmt: PhantomData,
         }
     }
@@ -140,7 +133,6 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     pub fn clock_polarity(self, polarity: ClockPolarity) -> Self {
         I2sTransferConfig::<MS, TR, STD, FMT> {
             driver_config: self.driver_config.clock_polarity(polarity),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -153,7 +145,6 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     {
         I2sTransferConfig::<MS, TR, STD, NEW_FMT> {
             driver_config: self.driver_config.data_format(NEW_FMT::VALUE),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -162,7 +153,6 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     pub fn to_slave(self) -> I2sTransferConfig<Slave, TR, STD, FMT> {
         I2sTransferConfig::<Slave, TR, STD, FMT> {
             driver_config: self.driver_config.to_slave(),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -171,7 +161,6 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     pub fn to_master(self) -> I2sTransferConfig<Master, TR, STD, FMT> {
         I2sTransferConfig::<Master, TR, STD, FMT> {
             driver_config: self.driver_config.to_master(),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -184,7 +173,6 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     pub fn master_clock(self, enable: bool) -> Self {
         I2sTransferConfig::<Master, TR, STD, FMT> {
             driver_config: self.driver_config.master_clock(enable),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -207,7 +195,6 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     pub fn prescaler(self, odd: bool, div: u8) -> Self {
         I2sTransferConfig::<Master, TR, STD, FMT> {
             driver_config: self.driver_config.prescaler(odd, div),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -216,7 +203,6 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     pub fn request_frequency(self, freq: u32) -> Self {
         I2sTransferConfig::<Master, TR, STD, FMT> {
             driver_config: self.driver_config.request_frequency(freq),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -227,7 +213,6 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     pub fn require_frequency(self, freq: u32) -> Self {
         I2sTransferConfig::<Master, TR, STD, FMT> {
             driver_config: self.driver_config.require_frequency(freq),
-            _std: PhantomData,
             _fmt: PhantomData,
         }
     }
@@ -257,11 +242,10 @@ where
     I: I2sPeripheral,
     FMT: DataFormat,
 {
-    driver: Driver<I, Mode<MS, TR>>,
+    driver: Driver<I, Mode<MS, TR, STD>>,
     frame: FMT::AudioFrame,
     frame_state: FrameState,
     sync: bool,
-    _std: PhantomData<STD>,
     _fmt: PhantomData<FMT>,
 }
 

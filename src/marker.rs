@@ -8,10 +8,12 @@ use crate::sealed::Sealed;
 ///
 ///  - `MS`: `Master` or `Slave`
 ///  - `TR`: `Transmit` or `Receive`
+///  - `STD`: I2S standard, eg `Philips`
 #[derive(Debug, Clone, Copy)]
-pub struct Mode<MS, TR> {
+pub struct Mode<MS, TR, STD> {
     _ms: PhantomData<MS>,
     _tr: PhantomData<TR>,
+    _std: PhantomData<STD>,
 }
 
 /// Marker, indicated master mode.
