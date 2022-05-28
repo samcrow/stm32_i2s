@@ -153,20 +153,24 @@ enum Frequency {
     Require(u32),
 }
 
-#[derive(Debug, Clone, Copy)]
-/// I2s standard selection.
-pub enum I2sStandard {
-    /// Philips I2S
-    Philips,
-    /// MSB Justified
-    Msb,
-    /// LSB Justified
-    Lsb,
-    /// PCM with short frame synchronisation.
-    PcmShortSync,
-    /// PCM with long frame synchronisation.
-    PcmLongSync,
+/// Those thing are not part of the public API but appear on public trait.
+pub(crate) mod private {
+    #[derive(Debug, Clone, Copy)]
+    /// I2s standard selection.
+    pub enum I2sStandard {
+        /// Philips I2S
+        Philips,
+        /// MSB Justified
+        Msb,
+        /// LSB Justified
+        Lsb,
+        /// PCM with short frame synchronisation.
+        PcmShortSync,
+        /// PCM with long frame synchronisation.
+        PcmLongSync,
+    }
 }
+pub(crate) use private::I2sStandard;
 
 /// Steady state clock polarity
 #[derive(Debug, Clone, Copy)]
