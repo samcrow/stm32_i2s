@@ -27,10 +27,11 @@
 //! ```
 use core::marker::PhantomData;
 
-use crate::marker::*;
 use crate::pac::spi1::RegisterBlock;
 use crate::pac::spi1::{i2spr, sr};
 use crate::I2sPeripheral;
+
+pub use crate::marker::{self, *};
 
 /// The channel associated with a sample
 #[derive(Debug, Clone, Copy, PartialEq)]

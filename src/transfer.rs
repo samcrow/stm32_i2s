@@ -33,8 +33,9 @@ use crate::driver::Channel::*;
 use crate::driver::ClockPolarity;
 use crate::driver::I2sDriver as Driver;
 use crate::driver::I2sDriverConfig as DriverConfig;
-use crate::marker::{self, *};
 use crate::I2sPeripheral;
+
+pub use crate::marker::{self, *};
 
 #[derive(Debug, Clone, Copy)]
 /// [`I2sTransfer`] configuration.
