@@ -785,11 +785,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
-    fn test_div_rounding() {
+    fn test_div_round() {
         let fracs = [(1, 2), (2, 2), (1, 3), (2, 3), (2, 4), (3, 5), (9, 2)];
         for (n, d) in fracs {
-            let res = div_rounding(n, d);
+            let res = div_round(n, d);
             let check = f32::round((n as f32) / (d as f32)) as u32;
             assert_eq!(res, check);
         }
