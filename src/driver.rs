@@ -347,14 +347,12 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
     /// # Panics
     ///
     /// This method panics if an exact frequency is required and that frequency cannot be set.
-    pub fn i2s_driver<I: I2sPeripheral>(
-        self,
-        i2s_peripheral: I,
-    ) -> I2sDriver<I, Mode<MS, TR, STD>> {
-        let _mode = PhantomData;
-        let driver = I2sDriver::<I, Mode<MS, TR, STD>> {
+    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, MS, TR, STD> {
+        let driver = I2sDriver::<I, MS, TR, STD> {
             i2s_peripheral,
-            _mode,
+            _ms: PhantomData,
+            _tr: PhantomData,
+            _std: PhantomData,
         };
         driver.registers().cr1.reset(); // ensure SPI is disabled
         driver.registers().cr2.reset(); // disable interrupt and DMA request
@@ -578,13 +576,14 @@ impl<TR, STD> I2sDriverConfig<Master, TR, STD> {
 /// Driver of a SPI peripheral in I2S mode.
 ///
 /// Meant for advanced usage, for example using interrupt or DMA.
-pub struct I2sDriver<I, MODE> {
+pub struct I2sDriver<I, MS, TR, STD> {
     i2s_peripheral: I,
-
-    _mode: PhantomData<MODE>,
+    _ms: PhantomData<MS>,
+    _tr: PhantomData<TR>,
+    _std: PhantomData<STD>,
 }
 
-impl<I, MODE> I2sDriver<I, MODE>
+impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
 where
     I: I2sPeripheral,
 {
@@ -595,7 +594,7 @@ where
 }
 
 /// Constructors and Destructors
-impl<I, MS, TR, STD> I2sDriver<I, Mode<MS, TR, STD>>
+impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
 where
     I: I2sPeripheral,
 {
@@ -624,13 +623,13 @@ where
     pub fn reconfigure<NEW_MS, NEW_TR, NEW_STD>(
         self,
         config: I2sDriverConfig<NEW_MS, NEW_TR, NEW_STD>,
-    ) -> I2sDriver<I, Mode<NEW_MS, NEW_TR, NEW_STD>> {
+    ) -> I2sDriver<I, NEW_MS, NEW_TR, NEW_STD> {
         let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)
     }
 }
 
-impl<I, MODE> I2sDriver<I, MODE>
+impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
 where
     I: I2sPeripheral,
 {
@@ -671,7 +670,7 @@ where
 }
 
 /// Status
-impl<I, MS, TR, STD> I2sDriver<I, Mode<MS, TR, STD>>
+impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
 where
     I: I2sPeripheral,
 {
@@ -690,7 +689,7 @@ where
 }
 
 /// Transmit only methods
-impl<I, MS, STD> I2sDriver<I, Mode<MS, Transmit, STD>>
+impl<I, MS, STD> I2sDriver<I, MS, Transmit, STD>
 where
     I: I2sPeripheral,
 {
@@ -713,7 +712,7 @@ where
 }
 
 /// Receive only methods
-impl<I, MS, STD> I2sDriver<I, Mode<MS, Receive, STD>>
+impl<I, MS, STD> I2sDriver<I, MS, Receive, STD>
 where
     I: I2sPeripheral,
 {
@@ -734,7 +733,7 @@ where
 }
 
 /// Error interrupt, Master Receive Mode.
-impl<I, STD> I2sDriver<I, Mode<Master, Receive, STD>>
+impl<I, STD> I2sDriver<I, Master, Receive, STD>
 where
     I: I2sPeripheral,
 {
@@ -747,7 +746,7 @@ where
 }
 
 /// Error interrupt, Slave Mode.
-impl<I, TR, STD> I2sDriver<I, Mode<Slave, TR, STD>>
+impl<I, TR, STD> I2sDriver<I, Slave, TR, STD>
 where
     I: I2sPeripheral,
 {
@@ -760,7 +759,7 @@ where
 }
 
 /// Sampling Rate
-impl<I, TR, STD> I2sDriver<I, Mode<Master, TR, STD>>
+impl<I, TR, STD> I2sDriver<I, Master, TR, STD>
 where
     I: I2sPeripheral,
 {

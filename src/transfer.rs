@@ -242,7 +242,7 @@ where
     I: I2sPeripheral,
     FMT: DataFormat,
 {
-    driver: Driver<I, Mode<MS, TR, STD>>,
+    driver: Driver<I, MS, TR, STD>,
     frame: FMT::AudioFrame,
     frame_state: FrameState,
     sync: bool,

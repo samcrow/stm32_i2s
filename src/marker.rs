@@ -1,20 +1,6 @@
 //! Markers for [`I2sDriver`](crate::driver::I2sDriver),
 //! [`I2sTransfer`](crate::transfer::I2sTransfer) and their respective configuration.
-use core::marker::PhantomData;
-
 use crate::sealed::Sealed;
-
-/// Marker, indicate operation mode of the I2sDriver.
-///
-///  - `MS`: `Master` or `Slave`
-///  - `TR`: `Transmit` or `Receive`
-///  - `STD`: I2S standard, eg `Philips`
-#[derive(Debug, Clone, Copy)]
-pub struct Mode<MS, TR, STD> {
-    _ms: PhantomData<MS>,
-    _tr: PhantomData<TR>,
-    _std: PhantomData<STD>,
-}
 
 /// Marker, indicated master mode.
 #[derive(Debug, Clone, Copy)]
