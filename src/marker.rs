@@ -76,7 +76,7 @@ impl Data16 for Data16Channel32 {}
 
 /// Trait for marker indicating a DataFormat
 pub trait DataFormat: Sealed {
-    /// Runtime value.
+    /// Internal use only (used by configuration types).
     const VALUE: crate::driver::DataFormat;
     /// Audio frame representation from API point of view;
     type AudioFrame: Default;
@@ -102,7 +102,7 @@ impl_data_format!(
 
 /// Trait for marker indicating a i2s standard.
 pub trait I2sStandard: Sealed {
-    /// Runtime value.
+    /// Internal use only (used by configuration types).
     const VALUE: crate::driver::I2sStandard;
     /// WS line level that make start the i2s device. `true` mean high level.
     ///
