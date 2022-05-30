@@ -13,7 +13,7 @@
 //! let driver_config = I2sDriverConfig::new_master()
 //!     .receive()
 //!     .standard(Philips)
-//!     .data_format(DataFormat::Data24Channel32)
+//!     .data_format(DataFormat::Data16Channel32)
 //!     .master_clock(true)
 //!     .request_frequency(48_000);
 //! ```
@@ -24,6 +24,24 @@
 //!
 //! // alternate way
 //! let driver = I2sDriver::new(i2s_peripheral, driver_config);
+//! ```
+//!
+//! # Usage
+//!
+//! `I2sDriver` actually give direct access to hardware, there isn't concept of audio data with it,
+//! it's up to the user to reconstruct this information by controlling the hardware and using
+//! available informations.
+//!
+//! Pseudocode example when driver is configured to receive 16 bit audio data:
+//! ```no_run
+//! let status = driver.status();
+//! if status.rxne() {
+//!     let data = driver.read_data_register();
+//!     match status.chside() {
+//!         Channel::Left => /* `data` contains left channel audio data */,
+//!         Channel::Right => /* `data` contains right channel audio data */,
+//!     }
+//! }
 //! ```
 use core::marker::PhantomData;
 
