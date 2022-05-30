@@ -10,6 +10,7 @@
 //!
 //! [`I2sDriverConfig`] is used to create configuration of the i2s driver:
 //! ```no_run
+//! # use stm32_i2s_v12x::driver::*;
 //! let driver_config = I2sDriverConfig::new_master()
 //!     .receive()
 //!     .standard(Philips)
@@ -18,7 +19,7 @@
 //!     .request_frequency(48_000);
 //! ```
 //! Then you can instantiate the driver around an `I2sPeripheral`:
-//! ```no_run
+//! ```ignore
 //! // instantiate from configuration
 //! let driver = driver_config.i2s_driver(i2s_peripheral);
 //!
@@ -33,7 +34,7 @@
 //! available informations.
 //!
 //! Pseudocode example when driver is configured to receive 16 bit audio data:
-//! ```no_run
+//! ```ignore
 //! let status = driver.status();
 //! if status.rxne() {
 //!     let data = driver.read_data_register();

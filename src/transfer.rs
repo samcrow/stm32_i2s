@@ -12,6 +12,7 @@
 //!
 //! [`I2sTransferConfig`] is used to create configuration of the i2s transfer:
 //! ```no_run
+//! # use stm32_i2s_v12x::transfer::*;
 //! let transfer_config = I2sTransferConfig::new_master()
 //!     .receive()
 //!     .standard(Philips)
@@ -20,7 +21,7 @@
 //!     .request_frequency(48_000);
 //! ```
 //! Then you can instantiate the transfer around an `I2sPeripheral`:
-//! ```no_run
+//! ```ignore
 //! // instantiate from configuration
 //! let transfer = transfer_config.i2s_transfer(i2s_peripheral);
 //!
@@ -32,7 +33,7 @@
 //!
 //! Transmitting data can be done with `write_iter` (blocking API) or `write` (non-blocking API)
 //!
-//! ```no_run
+//! ```ignore
 //! // Full scale sine wave spanning 32 samples. With a 48 kHz sampling rate this give a 1500 Hz
 //! // signal.
 //! const SINE_1500: [i16; 32] = [
@@ -59,7 +60,7 @@
 //! # Receiving data
 //!
 //! Receiving data can be done with `read_while` (blocking API) or `read` (non-blocking API).
-//! ```no_run
+//! ```ignore
 //! // buffer to record 1 second  of 8 bit mono data at 48 kHz
 //! let mut buf = [0u8; 48000];
 //!
@@ -86,7 +87,7 @@
 //!
 //! The non-blocking API allow to process transmitting and receiving at same time. However, the
 //! following example require two transfer using same clocks to work correctly:
-//! ```no_run
+//! ```ignore
 //! let mut samples = (0, 0);
 //! loop {
 //!     if let Ok(s) = transfer1.read() {
