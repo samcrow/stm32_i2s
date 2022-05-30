@@ -5,6 +5,9 @@
 //! trait. The job is mainly done by [`I2sTransfer`], a type that wrap an I2sPeripheral to control
 //! it.
 //!
+//! At the moment, transfer is not implemented for 24 bits data and for PCM standard in master
+//! receive mode.
+//!
 //! # Configure and instantiate transfer.
 //!
 //! [`I2sTransferConfig`] is used to create configuration of the i2s transfer:
@@ -12,17 +15,86 @@
 //! let transfer_config = I2sTransferConfig::new_master()
 //!     .receive()
 //!     .standard(Philips)
-//!     .data_format(Data24Channel32)
+//!     .data_format(Data16Channel32)
 //!     .master_clock(true)
 //!     .request_frequency(48_000);
 //! ```
 //! Then you can instantiate the transfer around an `I2sPeripheral`:
 //! ```no_run
 //! // instantiate from configuration
-//! let transfer = transfer_config.i2s_driver(i2s_peripheral);
+//! let transfer = transfer_config.i2s_transfer(i2s_peripheral);
 //!
 //! // alternate way
 //! let transfer = I2sTransfer::new(i2s_peripheral, transfer_config);
+//! ```
+//!
+//! # Transmitting data
+//!
+//! Transmitting data can be done with `write_iter` (blocking API) or `write` (non-blocking API)
+//!
+//! ```no_run
+//! // Full scale sine wave spanning 32 samples. With a 48 kHz sampling rate this give a 1500 Hz
+//! // signal.
+//! const SINE_1500: [i16; 32] = [
+//!     0, 6392, 12539, 18204, 23169, 27244, 30272, 32137, 32767, 32137, 30272, 27244, 23169,
+//!     18204, 12539, 6392, 0, -6392, -12539, -18204, -23169, -27244, -30272, -32137, -32767,
+//!     -32137, -30272, -27244, -23169, -18204, -12539, -6392,
+//! ];
+//!
+//! // Iterator generating audio data for 1 sec (at 48 kHz sampling rate)
+//! let sine_1500_iter = SINE_1500
+//!     .iter()
+//!     .map(|&x| (x, x))
+//!     .cycle()
+//!     .take(48_000 as usize);
+//!
+//! // write_iter (blocking API)
+//! i2s2_transfer.write_iter(sine_1500_iter.clone());
+//!
+//! // equivalent using write (non-blocking);
+//! for sample in sine_1500_iter.clone() {
+//!     block!(i2s3_transfer.write(sample)).ok();
+//! }
+//! ```
+//! # Receiving data
+//!
+//! Receiving data can be done with `read_while` (blocking API) or `read` (non-blocking API).
+//! ```no_run
+//! // buffer to record 1 second  of 8 bit mono data at 48 kHz
+//! let mut buf = [0u8; 48000];
+//!
+//! // peekable iterator
+//! let mut buf_iter = buf.iter_mut().peekable();
+//!
+//! // take left channel data and convert it into 8 bit data (blocking)
+//! transfer.read_while(|s| {
+//!     if let Some(b) = buf_iter.next() {
+//!         *b = (s.0 >> 8) as u8;
+//!     }
+//!     buf_iter.peek().is_some()
+//! });
+//!
+//! // equivalent with using read (non-blocking API)
+//! for sample in sine_1500_iter.clone() {
+//!     if let Some((l,_)) = block!(i2s3_transfer.read()) {
+//!         *sample = (l >> 8) as u8;
+//!     }
+//! }
+//! ```
+//!
+//! # Transmit and receive at same time
+//!
+//! The non-blocking API allow to process transmitting and receiving at same time. However, the
+//! following example require two transfer using same clocks to work correctly:
+//! ```no_run
+//! let mut samples = (0, 0);
+//! loop {
+//!     if let Ok(s) = transfer1.read() {
+//!         /* do some processing on s */
+//!         samples = s;
+//!     }
+//!     transfer2.write(samples).ok();
+//! }
 //! ```
 use core::convert::Infallible;
 use core::marker::PhantomData;
@@ -322,6 +394,7 @@ where
     I: I2sPeripheral,
     FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
 {
+    /// Transmit (blocking) data from an iterator.
     pub fn write_iter<ITER>(&mut self, samples: ITER)
     where
         ITER: IntoIterator<Item = (i16, i16)>,
@@ -386,6 +459,7 @@ impl<I, STD> I2sTransfer<I, Master, Transmit, STD, Data32Channel32>
 where
     I: I2sPeripheral,
 {
+    /// Transmit (blocking) data from an iterator.
     pub fn write_iter<ITER>(&mut self, samples: ITER)
     where
         ITER: IntoIterator<Item = (i32, i32)>,
@@ -468,7 +542,7 @@ where
     STD: I2sStandard,
     FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
 {
-    //TODO WS_line sensing is protocol dependent
+    /// Transmit (blocking) data from an iterator.
     pub fn write_iter<ITER>(&mut self, samples: ITER)
     where
         ITER: IntoIterator<Item = (i16, i16)>,
@@ -576,8 +650,8 @@ where
     I: I2sPeripheral,
     STD: I2sStandard,
 {
+    /// Transmit (blocking) data from an iterator.
     #[inline]
-    // Can't make it work now
     pub fn write_iter<ITER>(&mut self, samples: ITER)
     where
         ITER: IntoIterator<Item = (i32, i32)>,
