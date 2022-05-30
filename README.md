@@ -1,13 +1,14 @@
 # STM32 I2S driver
 
-*This library is currently redesigned, see [rework-branch.md](rework-branch.md) for details*
-
-This library provides a driver for I2S communication using the SPI peripherals on some STM32 microcontrollers.
+This library provides driver and abstractions for I2S communication using the
+SPI peripherals on some STM32 microcontrollers.
 
 ## Differences between STM32 models
 
-According to application note [AN5543](https://www.st.com/resource/en/application_note/dm00725181-enhanced-methods-to-handle-spi-communication-on-stm32-devices-stmicroelectronics.pdf),
-there are four major versions of the SPI/I2S peripheral used on STM32 microcontrollers:
+According to application note
+[AN5543](https://www.st.com/resource/en/application_note/dm00725181-enhanced-methods-to-handle-spi-communication-on-stm32-devices-stmicroelectronics.pdf),
+there are four major versions of the SPI/I2S peripheral used on STM32
+microcontrollers:
 
 * 1.2.x: F1, F2, F4, L0, L1
 * 1.3.x: F0, F3, F7, L4, L5, WB, WL
@@ -19,8 +20,9 @@ This library currently has code for SPI version 1.2 (STM32F1, STM32F2, STM32F4, 
 ## Status
 
 This library has been tested on a few different STM32F4 microcontrollers. The
-other models that use the same SPI version (F1, F2, L0, and L1) may work,
-but I have not tested any of them.
+other models that use the same SPI version (F1, F2, L0, and L1) may work, but
+we haven't tested any of them. Trait implementation and working example will be
+availaible in stm32f4xx-hal.
 
 ## License
 
