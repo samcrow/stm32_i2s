@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## v0.3.0- 2022-06-19
+
+### Changed
+
+- Major restructure [#5](https://github.com/samcrow/stm32_i2s/pull/5)
+
 ## v0.2.0 - 2021-02-07
 
 ### Added

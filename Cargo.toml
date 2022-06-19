@@ -1,7 +1,7 @@
 [package]
 name = "stm32_i2s_v12x"
 version = "0.2.0"
-authors = ["Sam Crow <scrow@eng.ucsd.edu>", "Amaury Abrial aka Yruama_Lairba <yruama_lairba@hotmail.com"]
+authors = ["Sam Crow <scrow@eng.ucsd.edu>", "Amaury Abrial aka Yruama_Lairba <yruama_lairba@hotmail.com>"]
 edition = "2018"
 description = "Driver for I2S communication (using SPI peripherals) for some STM32 microcontrollers"
 license = "0BSD"
@@ -29,6 +29,5 @@ features = ["cortex-m"]
 # Needs an unreleased version to set up the I2S clocks correctly, at least until the next version of stm32f4xx-hal
 # after v0.8.3 is released
 [dev-dependencies.stm32f4xx-hal]
-git = "https://github.com/stm32-rs/stm32f4xx-hal"
-rev = "1f0385fec243693537750b5baee2ac7d1dbc06e7"
+version = "0.13.0"
 features = ["stm32f412", "rt"]
