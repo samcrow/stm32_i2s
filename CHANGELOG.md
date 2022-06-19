@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## v0.3.0- 2022-06-19
+## [v0.3.0 - 2022-06-19](https://github.com/samcrow/stm32_i2s/tree/v0.3.0)
 
 ### Changed
 
