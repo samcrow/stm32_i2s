@@ -527,7 +527,7 @@ where
                     self.frame_state = RightLsb;
                 }
                 RightLsb => {
-                    let data = (frame.1 as u32 & 0xFFFF) as u16;
+                    let data = (self.frame.1 as u32 & 0xFFFF) as u16;
                     self.driver.write_data_register(data);
                     self.frame_state = LeftMsb;
                 }
@@ -743,7 +743,7 @@ where
                         self.frame_state = RightLsb;
                     }
                     RightLsb => {
-                        let data = (frame.1 as u32 & 0xFFFF) as u16;
+                        let data = (self.frame.1 as u32 & 0xFFFF) as u16;
                         self.driver.write_data_register(data);
                         self.frame_state = LeftMsb;
                     }
@@ -1016,8 +1016,7 @@ where
                 self.driver.disable();
             }
         } else if !self._ws_is_start() {
-            //defmt::println!("sycing");
-            self.frame_state = RightMsb;
+            self.frame_state = LeftMsb;
             self.driver.enable();
             self.driver.read_data_register();
             self.driver.status();
@@ -1130,8 +1129,7 @@ where
                 self.driver.disable();
             }
         } else if !self._ws_is_start() {
-            //defmt::println!("sycing");
-            self.frame_state = RightMsb;
+            self.frame_state = LeftMsb;
             self.driver.enable();
             self.driver.read_data_register();
             self.driver.status();
