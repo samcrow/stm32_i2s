@@ -652,16 +652,6 @@ impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
 where
     I: I2sPeripheral,
 {
-    /// Get a reference to the underlying i2s device
-    pub fn i2s_peripheral(&self) -> &I {
-        &self.i2s_peripheral
-    }
-
-    /// Get a mutable reference to the underlying i2s device
-    pub fn i2s_peripheral_mut(&mut self) -> &mut I {
-        &mut self.i2s_peripheral
-    }
-
     /// Enable the I2S peripheral.
     pub fn enable(&mut self) {
         self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
@@ -689,7 +679,7 @@ where
     /// This allow to immediately start a new frame when an error occurred. This is even the only
     /// way to recover from an overrun error when the driver is in Master Receive mode with the PCM
     /// standard.
-    pub fn reset_clocks(&self) {
+    pub fn reset_clocks(&mut self) {
         let registers = self.registers();
         let cr2 = registers.cr2.read().bits();
         let i2scfgr = registers.i2scfgr.read().bits();

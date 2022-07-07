@@ -69,5 +69,5 @@ pub unsafe trait I2sPeripheral {
     /// Return `true` if the level at WS pin is low.
     fn ws_is_low(&self) -> bool;
     /// Reset the peripheral through the rcc register.
-    fn rcc_reset(&self);
+    fn rcc_reset(&mut self);
 }
