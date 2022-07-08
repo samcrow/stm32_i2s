@@ -58,6 +58,7 @@ mod sealed {
 /// * `REGISTERS` is a pointer to that peripheral's register block and can be safely accessed  as
 ///   long as ownership or a borrow of the implementing type is present.
 pub unsafe trait I2sPeripheral {
+    type WsPin;
     /// Pointer to the SPI register block
     const REGISTERS: *const ();
     /// Get I2s clock source frequency from the I2s device.
@@ -69,5 +70,13 @@ pub unsafe trait I2sPeripheral {
     /// Return `true` if the level at WS pin is low.
     fn ws_is_low(&self) -> bool;
     /// Reset the peripheral through the rcc register.
+    fn ws_pin(&self) -> &Self::WsPin;
+    fn ws_pin_mut(&mut self) -> &mut Self::WsPin;
     fn rcc_reset(&mut self);
+}
+
+/// Pin of an i2s peripheral configured in `WS` alternate mode.
+pub trait WsPin {
+    fn is_low(&self) -> bool;
+    fn is_high(&self) -> bool;
 }
