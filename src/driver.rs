@@ -627,13 +627,9 @@ where
         config.i2s_driver(i2s_peripheral)
     }
 
-    /// Destroy the driver, release the owned i2s device and reset it's configuration.
-    pub fn release(self) -> I {
-        let registers = self.registers();
-        registers.cr1.reset();
-        registers.cr2.reset();
-        registers.i2scfgr.reset();
-        registers.i2spr.reset();
+    /// Destroy the driver, release and reset the owned i2s device.
+    pub fn release(mut self) -> I {
+        self.i2s_peripheral.rcc_reset();
         self.i2s_peripheral
     }
 
