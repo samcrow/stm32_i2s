@@ -653,7 +653,8 @@ where
         self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
     }
 
-    /// Immediately Disable the I2S peripheral.
+    /// Immediately Disable the I2S peripheral. Generated clocks aren't reseted so a call to
+    /// `reset_clocks` may required in master mode.
     ///
     /// It's up to the caller to not disable the peripheral in the middle of a frame.
     pub fn disable(&mut self) {
