@@ -370,10 +370,31 @@ where
     pub fn begin(&mut self) {
         self.driver.enable()
     }
+}
 
+impl<I, TR, STD, FMT> I2sTransfer<I, Slave, TR, STD, FMT>
+where
+    I: I2sPeripheral,
+    FMT: DataFormat,
+{
     /// Deactivate the I2s interface and reset internal state
     pub fn end(&mut self) {
         self.driver.disable();
+        self.frame = Default::default();
+        self.frame_state = FrameState::LeftMsb;
+        self.sync = false;
+    }
+}
+
+impl<I, TR, STD, FMT> I2sTransfer<I, Master, TR, STD, FMT>
+where
+    I: I2sPeripheral,
+    FMT: DataFormat,
+{
+    /// Deactivate the I2s interface and reset internal state
+    pub fn end(&mut self) {
+        self.driver.disable();
+        self.driver.reset_clocks();
         self.frame = Default::default();
         self.frame_state = FrameState::LeftMsb;
         self.sync = false;
