@@ -948,8 +948,8 @@ where
 impl<I, STD, FMT> I2sTransfer<I, Slave, Receive, STD, FMT>
 where
     I: I2sPeripheral,
+    STD: I2sStandard,
     FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
-    STD: ChannelFlag,
 {
     /// Read samples while predicate return `true`.
     ///
@@ -1048,7 +1048,7 @@ where
 impl<I, STD> I2sTransfer<I, Slave, Receive, STD, Data32Channel32>
 where
     I: I2sPeripheral,
-    STD: ChannelFlag,
+    STD: I2sStandard,
 {
     /// Read samples while predicate return `true`.
     ///
