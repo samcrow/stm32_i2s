@@ -705,8 +705,10 @@ where
         registers.i2scfgr.write(|w| unsafe { w.bits(i2scfgr) });
     }
 
-    //TODO(maybe) method to get a handle to WS pin. It may useful for setting an interrupt on pin to
-    //synchronise I2s in slave mode
+    /// Get address of data register for dma setup.
+    pub fn data_register_address(&self) -> u32 {
+        &(self.registers().dr) as *const _ as u32
+    }
 }
 
 /// Status
