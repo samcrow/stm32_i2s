@@ -102,7 +102,6 @@ use core::marker::PhantomData;
 
 use nb::Error::WouldBlock;
 
-use crate::driver::Channel::*;
 use crate::driver::ClockPolarity;
 use crate::driver::I2sDriver as Driver;
 use crate::driver::I2sDriverConfig as DriverConfig;
@@ -797,7 +796,6 @@ impl<I, STD, FMT> I2sTransfer<I, Master, Receive, STD, FMT>
 where
     I: I2sPeripheral,
     FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
-    STD: ChannelFlag,
 {
     /// Read samples while predicate return `true`.
     ///
@@ -810,13 +808,13 @@ where
         loop {
             let status = self.driver.status();
             if status.rxne() {
-                match status.chside() {
-                    Left => {
+                match self.frame_state {
+                    LeftMsb => {
                         let data = self.driver.read_data_register();
                         self.frame.0 = data as i16;
                         self.frame_state = RightMsb;
                     }
-                    Right => {
+                    RightMsb => {
                         let data = self.driver.read_data_register();
                         self.frame.1 = data as i16;
                         self.frame_state = LeftMsb;
@@ -824,6 +822,7 @@ where
                             return;
                         }
                     }
+                    _ => unreachable!(),
                 }
             }
             if status.ovr() {
@@ -841,18 +840,19 @@ where
         self.driver.enable();
         let status = self.driver.status();
         if status.rxne() {
-            match status.chside() {
-                Left => {
+            match self.frame_state {
+                LeftMsb => {
                     let data = self.driver.read_data_register();
                     self.frame.0 = data as i16;
                     self.frame_state = RightMsb;
                 }
-                Right => {
+                RightMsb => {
                     let data = self.driver.read_data_register();
                     self.frame.1 = data as i16;
                     self.frame_state = LeftMsb;
                     return Ok(self.frame);
                 }
+                _ => unreachable!(),
             }
         }
         if status.ovr() {
@@ -866,7 +866,6 @@ where
 impl<I, STD> I2sTransfer<I, Master, Receive, STD, Data32Channel32>
 where
     I: I2sPeripheral,
-    STD: ChannelFlag,
 {
     /// Read samples while predicate return `true`.
     ///
@@ -880,33 +879,30 @@ where
             let status = self.driver.status();
             if status.rxne() {
                 let data = self.driver.read_data_register();
-                match (self.frame_state, status.chside()) {
-                    (LeftMsb, Left) => {
+                match self.frame_state {
+                    LeftMsb => {
                         self.frame.0 = (data as i32) << 16;
                         self.frame_state = LeftLsb;
                     }
-                    (LeftLsb, Left) => {
+                    LeftLsb => {
                         self.frame.0 |= data as i32;
                         self.frame_state = RightMsb;
                     }
-                    (RightMsb, Right) => {
+                    RightMsb => {
                         self.frame.1 = (data as i32) << 16;
                         self.frame_state = RightLsb;
                     }
-                    (RightLsb, Right) => {
+                    RightLsb => {
                         self.frame.1 |= data as i32;
                         self.frame_state = LeftMsb;
                         if !predicate(self.frame) {
                             return;
                         }
                     }
-                    // in case of ovr this resynchronize at start of new frame
-                    _ => self.frame_state = LeftMsb,
                 }
             }
             if status.ovr() {
-                self.driver.read_data_register();
-                self.driver.status();
+                self.driver.reset_clocks();
                 self.frame_state = LeftMsb;
             }
         }
@@ -921,30 +917,27 @@ where
         let status = self.driver.status();
         if status.rxne() {
             let data = self.driver.read_data_register();
-            match (self.frame_state, status.chside()) {
-                (LeftMsb, Left) => {
+            match self.frame_state {
+                LeftMsb => {
                     self.frame.0 = (data as i32) << 16;
                     self.frame_state = LeftLsb;
                 }
-                (LeftLsb, Left) => {
+                LeftLsb => {
                     self.frame.0 |= data as i32;
                     self.frame_state = RightMsb;
                 }
-                (RightMsb, Right) => {
+                RightMsb => {
                     self.frame.1 = (data as i32) << 16;
                     self.frame_state = RightLsb;
                 }
-                (RightLsb, Right) => {
+                RightLsb => {
                     self.frame.1 |= data as i32;
                     self.frame_state = LeftMsb;
                     return Ok(self.frame);
                 }
-                // in case of ovr this resynchronize at start of new frame
-                _ => self.frame_state = LeftMsb,
             }
             if status.ovr() {
-                self.driver.read_data_register();
-                self.driver.status();
+                self.driver.reset_clocks();
                 self.frame_state = LeftMsb;
             }
         }
