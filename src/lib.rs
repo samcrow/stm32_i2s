@@ -69,14 +69,22 @@ pub unsafe trait I2sPeripheral {
     fn ws_is_high(&self) -> bool;
     /// Return `true` if the level at WS pin is low.
     fn ws_is_low(&self) -> bool;
-    /// Reset the peripheral through the rcc register.
+    /// Get a reference to WS pin.
     fn ws_pin(&self) -> &Self::WsPin;
+    /// Get mutable reference to WS pin;
     fn ws_pin_mut(&mut self) -> &mut Self::WsPin;
+    /// Reset the peripheral through the rcc register. This must be implemented with atomic
+    /// operation through write to bit band region.
     fn rcc_reset(&mut self);
 }
 
-/// Pin of an i2s peripheral configured in `WS` alternate mode.
+/// A pin carrying WS signal from/to an i2s peripheral.
+///
+/// Implementing this trait means implementing read operation on a pin physically configured in
+/// alternate mode.
 pub trait WsPin {
+    /// Return `true` if the level at WS pin is low.
     fn is_low(&self) -> bool;
+    /// Return `true` if the level at WS pin is high.
     fn is_high(&self) -> bool;
 }
