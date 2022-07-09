@@ -106,7 +106,7 @@ use crate::driver::Channel::*;
 use crate::driver::ClockPolarity;
 use crate::driver::I2sDriver as Driver;
 use crate::driver::I2sDriverConfig as DriverConfig;
-use crate::I2sPeripheral;
+use crate::{I2sPeripheral, WsPin};
 
 pub use crate::marker::{self, *};
 
@@ -333,8 +333,8 @@ where
     #[inline]
     fn _ws_is_start(&self) -> bool {
         match STD::WS_START_LEVEL {
-            false => self.driver.ws_is_low(),
-            true => self.driver.ws_is_high(),
+            false => self.driver.ws_pin().is_low(),
+            true => self.driver.ws_pin().is_high(),
         }
     }
 }
