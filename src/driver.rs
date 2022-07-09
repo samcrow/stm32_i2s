@@ -48,7 +48,7 @@ use core::marker::PhantomData;
 
 use crate::pac::spi1::RegisterBlock;
 use crate::pac::spi1::{i2spr, sr};
-use crate::I2sPeripheral;
+use crate::{I2sPeripheral, WsPin};
 
 pub use crate::marker::{self, *};
 
@@ -661,13 +661,21 @@ where
     }
 
     /// Return `true` if the level on the WS line is high.
+    #[deprecated(
+        since = "0.4.0",
+        note = "may removed in future, use `ws_pin().is_high()` instead"
+    )]
     pub fn ws_is_high(&self) -> bool {
-        self.i2s_peripheral.ws_is_high()
+        self.i2s_peripheral.ws_pin().is_high()
     }
 
     /// Return `true` if the level on the WS line is low.
+    #[deprecated(
+        since = "0.4.0",
+        note = "may removed in future, use `ws_pin().is_low()` instead"
+    )]
     pub fn ws_is_low(&self) -> bool {
-        self.i2s_peripheral.ws_is_low()
+        self.i2s_peripheral.ws_pin().is_low()
     }
 
     /// Get a reference to the WS pin.
