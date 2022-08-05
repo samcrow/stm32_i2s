@@ -97,6 +97,7 @@
 //!     transfer2.write(samples).ok();
 //! }
 //! ```
+use crate::sealed::Sealed;
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
@@ -108,6 +109,38 @@ use crate::driver::I2sDriverConfig as DriverConfig;
 use crate::{I2sPeripheral, WsPin};
 
 pub use crate::marker::{self, *};
+
+/// trait to build Frame representation from markers.
+pub trait FrameFormat: Sealed {
+    /// raw frame representation for transfer implmentation, actual type is always an array of u16
+    type RawFrame: Default + Copy + AsRef<[u16]> + AsMut<[u16]>;
+}
+
+/// Syntax sugar to get appropriate raw frame representation;
+pub type RawFrame<STD, FMT> = <(STD, FMT) as FrameFormat>::RawFrame;
+
+macro_rules! impl_frame_format{
+    ($(([$($std:ident),*],$fmt:ident,$raw_frame:ty)),*) => {
+        $(
+            $(
+                impl FrameFormat for ($std,$fmt) {
+                    type RawFrame = $raw_frame;
+                }
+            )*
+        )*
+    };
+}
+
+impl<T: Sealed, U: Sealed> Sealed for (T, U) {}
+
+impl_frame_format!(
+    ([Philips, Msb, Lsb], Data16Channel16, [u16; 2]),
+    ([Philips, Msb, Lsb], Data16Channel32, [u16; 2]),
+    ([Philips, Msb, Lsb], Data32Channel32, [u16; 4]),
+    ([PcmShortSync, PcmLongSync], Data16Channel16, [u16; 1]),
+    ([PcmShortSync, PcmLongSync], Data16Channel32, [u16; 1]),
+    ([PcmShortSync, PcmLongSync], Data32Channel32, [u16; 2])
+);
 
 #[derive(Debug, Clone, Copy)]
 /// [`I2sTransfer`] configuration.
