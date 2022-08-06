@@ -804,3 +804,100 @@ where
         Err(WouldBlock)
     }
 }
+
+impl<I, STD, FMT> I2sTransfer<I, Slave, Receive, STD, FMT>
+where
+    I: I2sPeripheral,
+    STD: I2sStandard,
+    (STD, FMT): FrameFormat,
+{
+    /// Read samples while predicate return `true`.
+    ///
+    /// The given closure must not block, otherwise communication problems may occur.
+    pub fn read_while<F, T>(&mut self, mut predicate: F)
+    where
+        T: FromRawFrame<STD, FMT>,
+        F: FnMut(T) -> bool,
+    {
+        loop {
+            if self.sync {
+                let status = self.driver.status();
+                if status.rxne() {
+                    if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                        self.transfer_count = 0;
+                    }
+                    self.frame.as_mut()[self.transfer_count as usize] =
+                        self.driver.read_data_register();
+                    self.transfer_count += 1;
+
+                    // note: boolean operators are short-circuiting
+                    if self.transfer_count >= self.frame.as_ref().len() as u8
+                        && !predicate(T::from_raw_frame(self.frame))
+                    {
+                        return;
+                    }
+                }
+                if status.fre() || status.ovr() {
+                    self.sync = false;
+                    self.driver.read_data_register();
+                    self.driver.status();
+                    self.driver.disable();
+                }
+            } else if !self._ws_is_start() {
+                self.transfer_count = 0;
+                self.driver.enable();
+                // ensure the ws line didn't change during sync process
+                if !self._ws_is_start() {
+                    self.sync = true;
+                } else {
+                    self.driver.disable();
+                }
+            }
+        }
+    }
+
+    /// Read one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To get the audio frame, this function need to be continuously called until the frame is
+    /// returned
+    pub fn read<T: FromRawFrame<STD, FMT>>(&mut self) -> nb::Result<T, Infallible> {
+        if !self.sync {
+            self.driver.disable();
+            self.transfer_count = 0;
+        }
+        if self.sync {
+            let status = self.driver.status();
+            if status.rxne() {
+                if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                    self.transfer_count = 0;
+                }
+                self.frame.as_mut()[self.transfer_count as usize] =
+                    self.driver.read_data_register();
+                self.transfer_count += 1;
+
+                // note: boolean operators are short-circuiting
+                if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                    return Ok(T::from_raw_frame(self.frame));
+                }
+            }
+            if status.fre() || status.ovr() {
+                self.sync = false;
+                //self.driver.read_data_register();
+                //self.driver.status();
+                self.driver.disable();
+            }
+        } else if !self._ws_is_start() {
+            self.transfer_count = 0;
+            self.driver.enable();
+            self.driver.read_data_register();
+            self.driver.status();
+            // ensure the ws line didn't change during sync process
+            if !self._ws_is_start() {
+                self.sync = true;
+            } else {
+                self.driver.disable();
+            }
+        }
+        Err(WouldBlock)
+    }
+}
