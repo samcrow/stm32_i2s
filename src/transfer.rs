@@ -209,7 +209,7 @@ where
 }
 
 macro_rules! impl_from_raw_frame{
-    ($((($type:ty,[$($std:ident),*],$fmt:ident),{$func:item})),*) => {
+    ($(($type:ty,[$($std:ident),*],$fmt:ident),$func:item),*) => {
         $(
             $(
                 impl FromRawFrame<$std, $fmt> for $type {
@@ -221,38 +221,32 @@ macro_rules! impl_from_raw_frame{
 }
 
 impl_from_raw_frame!(
-    (((i16, i16), [Philips, Msb, Lsb], Data16Channel16), {
-        fn from_raw(raw: [u16; 2]) -> Self {
-            (raw[0] as i16, raw[1] as i16)
-        }
-    }),
-    (((i16, i16), [Philips, Msb, Lsb], Data16Channel32), {
-        fn from_raw(raw: [u16; 2]) -> Self {
-            (raw[0] as i16, raw[1] as i16)
-        }
-    }),
-    (((i32, i32), [Philips, Msb, Lsb], Data32Channel32), {
-        fn from_raw(raw: [u16; 4]) -> Self {
-            let l = (raw[0] as i32) << 16 | raw[1] as i32;
-            let r = (raw[2] as i32) << 16 | raw[3] as i32;
-            (l, r)
-        }
-    }),
-    ((i16, [PcmShortSync, PcmLongSync], Data16Channel16), {
-        fn from_raw(raw: [u16; 1]) -> Self {
-            raw[0] as i16
-        }
-    }),
-    ((i16, [PcmShortSync, PcmLongSync], Data16Channel32), {
-        fn from_raw(raw: [u16; 1]) -> Self {
-            raw[0] as i16
-        }
-    }),
-    ((i32, [PcmShortSync, PcmLongSync], Data32Channel32), {
-        fn from_raw(raw: [u16; 2]) -> Self {
-            (raw[0] as i32) << 16 | raw[1] as i32
-        }
-    })
+    ((i16, i16), [Philips, Msb, Lsb], Data16Channel16),
+    fn from_raw(raw: [u16; 2]) -> Self {
+        (raw[0] as i16, raw[1] as i16)
+    },
+    ((i16, i16), [Philips, Msb, Lsb], Data16Channel32),
+    fn from_raw(raw: [u16; 2]) -> Self {
+        (raw[0] as i16, raw[1] as i16)
+    },
+    ((i32, i32), [Philips, Msb, Lsb], Data32Channel32),
+    fn from_raw(raw: [u16; 4]) -> Self {
+        let l = (raw[0] as i32) << 16 | raw[1] as i32;
+        let r = (raw[2] as i32) << 16 | raw[3] as i32;
+        (l, r)
+    },
+    (i16, [PcmShortSync, PcmLongSync], Data16Channel16),
+    fn from_raw(raw: [u16; 1]) -> Self {
+        raw[0] as i16
+    },
+    (i16, [PcmShortSync, PcmLongSync], Data16Channel32),
+    fn from_raw(raw: [u16; 1]) -> Self {
+        raw[0] as i16
+    },
+    (i32, [PcmShortSync, PcmLongSync], Data32Channel32),
+    fn from_raw(raw: [u16; 2]) -> Self {
+        (raw[0] as i32) << 16 | raw[1] as i32
+    }
 );
 #[derive(Debug, Clone, Copy)]
 /// [`I2sTransfer`] configuration.
