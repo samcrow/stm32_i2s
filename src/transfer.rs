@@ -113,7 +113,7 @@ pub use crate::marker::{self, *};
 /// trait to build Frame representation from markers.
 pub trait FrameFormat: Sealed {
     /// raw frame representation for transfer implmentation, actual type is always an array of u16
-    type RawFrame: Default + Copy + AsRef<[u16]> + AsMut<[u16]>;
+    type RawFrame: Default + Copy + Sync + Send + AsRef<[u16]> + AsMut<[u16]>;
 }
 
 /// Syntax sugar to get appropriate raw frame representation;
