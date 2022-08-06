@@ -147,7 +147,7 @@ pub trait ToRawFrame<STD, FMT>
 where
     (STD, FMT): FrameFormat,
 {
-    fn to_raw_frame(&self) -> RawFrame<STD, FMT>;
+    fn to_raw(&self) -> RawFrame<STD, FMT>;
 }
 
 macro_rules! impl_to_raw_frame{
@@ -164,17 +164,17 @@ macro_rules! impl_to_raw_frame{
 
 impl_to_raw_frame!(
     (((i16, i16), [Philips, Msb, Lsb], Data16Channel16), {
-        fn to_raw_frame(&self) -> [u16; 2] {
+        fn to_raw(&self) -> [u16; 2] {
             [self.0 as u16, self.1 as u16]
         }
     }),
     (((i16, i16), [Philips, Msb, Lsb], Data16Channel32), {
-        fn to_raw_frame(&self) -> [u16; 2] {
+        fn to_raw(&self) -> [u16; 2] {
             [self.0 as u16, self.1 as u16]
         }
     }),
     (((i32, i32), [Philips, Msb, Lsb], Data32Channel32), {
-        fn to_raw_frame(&self) -> [u16; 4] {
+        fn to_raw(&self) -> [u16; 4] {
             [
                 (self.0 as u32 >> 16) as u16,
                 (self.0 as u32 & 0xFFFF) as u16,
@@ -184,17 +184,17 @@ impl_to_raw_frame!(
         }
     }),
     ((i16, [PcmShortSync, PcmLongSync], Data16Channel16), {
-        fn to_raw_frame(&self) -> [u16; 1] {
+        fn to_raw(&self) -> [u16; 1] {
             [*self as u16]
         }
     }),
     ((i16, [PcmShortSync, PcmLongSync], Data16Channel32), {
-        fn to_raw_frame(&self) -> [u16; 1] {
+        fn to_raw(&self) -> [u16; 1] {
             [*self as u16]
         }
     }),
     ((i32, [PcmShortSync, PcmLongSync], Data32Channel32), {
-        fn to_raw_frame(&self) -> [u16; 2] {
+        fn to_raw(&self) -> [u16; 2] {
             [(*self as u32 >> 16) as u16, (*self as u32 & 0xFFFF) as u16]
         }
     })
@@ -205,22 +205,8 @@ pub trait FromRawFrame<STD, FMT>
 where
     (STD, FMT): FrameFormat,
 {
-    fn from_raw_frame(raw: RawFrame<STD, FMT>) -> Self;
+    fn from_raw(raw: RawFrame<STD, FMT>) -> Self;
 }
-
-/*
-impl FromRawFrame<Philips, Data16Channel16> for (i16,i16) {
-    fn from_raw_frame(raw: [u16;2]) -> Self {
-        (raw[0] as i16, raw[1] as i16)
-    }
-}
-
-impl FromRawFrame<Philips, Data16Channel32> for (i16,i16) {
-    fn from_raw_frame(raw: [u16;2]) -> Self {
-        (raw[0] as i16, raw[1] as i16)
-    }
-}
-*/
 
 macro_rules! impl_from_raw_frame{
     ($((($type:ty,[$($std:ident),*],$fmt:ident),{$func:item})),*) => {
@@ -236,34 +222,34 @@ macro_rules! impl_from_raw_frame{
 
 impl_from_raw_frame!(
     (((i16, i16), [Philips, Msb, Lsb], Data16Channel16), {
-        fn from_raw_frame(raw: [u16; 2]) -> Self {
+        fn from_raw(raw: [u16; 2]) -> Self {
             (raw[0] as i16, raw[1] as i16)
         }
     }),
     (((i16, i16), [Philips, Msb, Lsb], Data16Channel32), {
-        fn from_raw_frame(raw: [u16; 2]) -> Self {
+        fn from_raw(raw: [u16; 2]) -> Self {
             (raw[0] as i16, raw[1] as i16)
         }
     }),
     (((i32, i32), [Philips, Msb, Lsb], Data32Channel32), {
-        fn from_raw_frame(raw: [u16; 4]) -> Self {
+        fn from_raw(raw: [u16; 4]) -> Self {
             let l = (raw[0] as i32) << 16 | raw[1] as i32;
             let r = (raw[2] as i32) << 16 | raw[3] as i32;
             (l, r)
         }
     }),
     ((i16, [PcmShortSync, PcmLongSync], Data16Channel16), {
-        fn from_raw_frame(raw: [u16; 1]) -> Self {
+        fn from_raw(raw: [u16; 1]) -> Self {
             raw[0] as i16
         }
     }),
     ((i16, [PcmShortSync, PcmLongSync], Data16Channel32), {
-        fn from_raw_frame(raw: [u16; 1]) -> Self {
+        fn from_raw(raw: [u16; 1]) -> Self {
             raw[0] as i16
         }
     }),
     ((i32, [PcmShortSync, PcmLongSync], Data32Channel32), {
-        fn from_raw_frame(raw: [u16; 2]) -> Self {
+        fn from_raw(raw: [u16; 2]) -> Self {
             (raw[0] as i32) << 16 | raw[1] as i32
         }
     })
@@ -591,7 +577,7 @@ where
                     if smpl.is_none() {
                         break;
                     }
-                    self.frame = smpl.unwrap().to_raw_frame();
+                    self.frame = smpl.unwrap().to_raw();
                 }
                 self.driver
                     .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
@@ -614,7 +600,7 @@ where
                 self.transfer_count = 0;
             }
             if self.transfer_count == 0 {
-                self.frame = frame.to_raw_frame();
+                self.frame = frame.to_raw();
                 self.driver
                     .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
                 self.transfer_count += 1;
@@ -658,7 +644,7 @@ where
                         if frm.is_none() {
                             break;
                         }
-                        self.frame = frm.unwrap().to_raw_frame();
+                        self.frame = frm.unwrap().to_raw();
                     }
                     self.driver
                         .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
@@ -676,7 +662,7 @@ where
                 if frm.is_none() {
                     break;
                 }
-                self.frame = frm.unwrap().to_raw_frame();
+                self.frame = frm.unwrap().to_raw();
                 self.driver.write_data_register(self.frame.as_ref()[0]);
                 self.transfer_count = 1;
                 self.driver.enable();
@@ -704,7 +690,7 @@ where
                     self.transfer_count = 0;
                 }
                 if self.transfer_count == 0 {
-                    self.frame = frame.to_raw_frame();
+                    self.frame = frame.to_raw();
                     self.driver
                         .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
                     self.transfer_count += 1;
@@ -764,7 +750,7 @@ where
 
                 // note: boolean operators are short-circuiting
                 if self.transfer_count >= self.frame.as_ref().len() as u8
-                    && !predicate(T::from_raw_frame(self.frame))
+                    && !predicate(T::from_raw(self.frame))
                 {
                     return;
                 }
@@ -793,7 +779,7 @@ where
 
             // note: boolean operators are short-circuiting
             if self.transfer_count >= self.frame.as_ref().len() as u8 {
-                return Ok(T::from_raw_frame(self.frame));
+                return Ok(T::from_raw(self.frame));
             }
         }
         if status.ovr() {
@@ -832,7 +818,7 @@ where
 
                     // note: boolean operators are short-circuiting
                     if self.transfer_count >= self.frame.as_ref().len() as u8
-                        && !predicate(T::from_raw_frame(self.frame))
+                        && !predicate(T::from_raw(self.frame))
                     {
                         return;
                     }
@@ -877,7 +863,7 @@ where
 
                 // note: boolean operators are short-circuiting
                 if self.transfer_count >= self.frame.as_ref().len() as u8 {
-                    return Ok(T::from_raw_frame(self.frame));
+                    return Ok(T::from_raw(self.frame));
                 }
             }
             if status.fre() || status.ovr() {
