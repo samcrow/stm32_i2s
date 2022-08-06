@@ -151,7 +151,7 @@ where
 }
 
 macro_rules! impl_to_raw_frame{
-    ($((($type:ty,[$($std:ident),*],$fmt:ident),{$func:item})),*) => {
+    ($(($type:ty,[$($std:ident),*],$fmt:ident),$func:item),*) => {
         $(
             $(
                 impl ToRawFrame<$std, $fmt> for $type {
@@ -163,41 +163,35 @@ macro_rules! impl_to_raw_frame{
 }
 
 impl_to_raw_frame!(
-    (((i16, i16), [Philips, Msb, Lsb], Data16Channel16), {
-        fn to_raw(&self) -> [u16; 2] {
-            [self.0 as u16, self.1 as u16]
-        }
-    }),
-    (((i16, i16), [Philips, Msb, Lsb], Data16Channel32), {
-        fn to_raw(&self) -> [u16; 2] {
-            [self.0 as u16, self.1 as u16]
-        }
-    }),
-    (((i32, i32), [Philips, Msb, Lsb], Data32Channel32), {
-        fn to_raw(&self) -> [u16; 4] {
-            [
-                (self.0 as u32 >> 16) as u16,
-                (self.0 as u32 & 0xFFFF) as u16,
-                (self.1 as u32 >> 16) as u16,
-                (self.1 as u32 & 0xFFFF) as u16,
-            ]
-        }
-    }),
-    ((i16, [PcmShortSync, PcmLongSync], Data16Channel16), {
-        fn to_raw(&self) -> [u16; 1] {
-            [*self as u16]
-        }
-    }),
-    ((i16, [PcmShortSync, PcmLongSync], Data16Channel32), {
-        fn to_raw(&self) -> [u16; 1] {
-            [*self as u16]
-        }
-    }),
-    ((i32, [PcmShortSync, PcmLongSync], Data32Channel32), {
-        fn to_raw(&self) -> [u16; 2] {
-            [(*self as u32 >> 16) as u16, (*self as u32 & 0xFFFF) as u16]
-        }
-    })
+    ((i16, i16), [Philips, Msb, Lsb], Data16Channel16),
+    fn to_raw(&self) -> [u16; 2] {
+        [self.0 as u16, self.1 as u16]
+    },
+    ((i16, i16), [Philips, Msb, Lsb], Data16Channel32),
+    fn to_raw(&self) -> [u16; 2] {
+        [self.0 as u16, self.1 as u16]
+    },
+    ((i32, i32), [Philips, Msb, Lsb], Data32Channel32),
+    fn to_raw(&self) -> [u16; 4] {
+        [
+            (self.0 as u32 >> 16) as u16,
+            (self.0 as u32 & 0xFFFF) as u16,
+            (self.1 as u32 >> 16) as u16,
+            (self.1 as u32 & 0xFFFF) as u16,
+        ]
+    },
+    (i16, [PcmShortSync, PcmLongSync], Data16Channel16),
+    fn to_raw(&self) -> [u16; 1] {
+        [*self as u16]
+    },
+    (i16, [PcmShortSync, PcmLongSync], Data16Channel32),
+    fn to_raw(&self) -> [u16; 1] {
+        [*self as u16]
+    },
+    (i32, [PcmShortSync, PcmLongSync], Data32Channel32),
+    fn to_raw(&self) -> [u16; 2] {
+        [(*self as u32 >> 16) as u16, (*self as u32 & 0xFFFF) as u16]
+    }
 );
 
 /// Those type can be received
