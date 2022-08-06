@@ -142,6 +142,64 @@ impl_frame_format!(
     ([PcmShortSync, PcmLongSync], Data32Channel32, [u16; 2])
 );
 
+/// Those type can be transmitted
+pub trait ToRawFrame<STD, FMT>
+where
+    (STD, FMT): FrameFormat,
+{
+    fn to_raw_frame(&self) -> RawFrame<STD, FMT>;
+}
+
+macro_rules! impl_to_raw_frame{
+    ($((($type:ty,[$($std:ident),*],$fmt:ident),{$func:item})),*) => {
+        $(
+            $(
+                impl ToRawFrame<$std, $fmt> for $type {
+                    $func
+                }
+            )*
+        )*
+    };
+}
+
+impl_to_raw_frame!(
+    (((i16, i16), [Philips, Msb, Lsb], Data16Channel16), {
+        fn to_raw_frame(&self) -> [u16; 2] {
+            [self.0 as u16, self.1 as u16]
+        }
+    }),
+    (((i16, i16), [Philips, Msb, Lsb], Data16Channel32), {
+        fn to_raw_frame(&self) -> [u16; 2] {
+            [self.0 as u16, self.1 as u16]
+        }
+    }),
+    (((i32, i32), [Philips, Msb, Lsb], Data32Channel32), {
+        fn to_raw_frame(&self) -> [u16; 4] {
+            [
+                (self.0 as u32 >> 16) as u16,
+                (self.0 as u32 & 0xFFFF) as u16,
+                (self.1 as u32 >> 16) as u16,
+                (self.1 as u32 & 0xFFFF) as u16,
+            ]
+        }
+    }),
+    ((i16, [PcmShortSync, PcmLongSync], Data16Channel16), {
+        fn to_raw_frame(&self) -> [u16; 1] {
+            [*self as u16]
+        }
+    }),
+    ((i16, [PcmShortSync, PcmLongSync], Data16Channel32), {
+        fn to_raw_frame(&self) -> [u16; 1] {
+            [*self as u16]
+        }
+    }),
+    ((i32, [PcmShortSync, PcmLongSync], Data32Channel32), {
+        fn to_raw_frame(&self) -> [u16; 2] {
+            [(*self as u32 >> 16) as u16, (*self as u32 & 0xFFFF) as u16]
+        }
+    })
+);
+
 #[derive(Debug, Clone, Copy)]
 /// [`I2sTransfer`] configuration.
 ///
@@ -325,16 +383,6 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     }
 }
 
-/// Part of the frame we currently transmitting or receiving
-#[derive(Debug, Clone, Copy)]
-enum FrameState {
-    LeftMsb,
-    LeftLsb,
-    RightMsb,
-    RightLsb,
-}
-use FrameState::*;
-
 /// Abstraction allowing to transmit/receive I2S data while erasing hardware details.
 ///
 /// This type is meant to implement the Upcoming I2S embbeded-hal in the future.
@@ -444,5 +492,71 @@ where
 {
     pub fn sample_rate(&self) -> u32 {
         self.driver.sample_rate()
+    }
+}
+
+/// Master Transmit
+impl<I, STD, FMT> I2sTransfer<I, Master, Transmit, STD, FMT>
+where
+    I: I2sPeripheral,
+    (STD, FMT): FrameFormat,
+{
+    /// Transmit (blocking) data from an iterator.
+    pub fn write_iter<ITER, T>(&mut self, samples: ITER)
+    where
+        T: ToRawFrame<STD, FMT>,
+        ITER: IntoIterator<Item = T>,
+    {
+        let mut samples = samples.into_iter();
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.txe() {
+                // having this check before give a chance to optimizer to remove bound checking on
+                // array access
+                if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                    self.transfer_count = 0;
+                }
+                if self.transfer_count == 0 {
+                    let smpl = samples.next();
+                    //breaking here ensure the last frame is fully transmitted
+                    if smpl.is_none() {
+                        break;
+                    }
+                    self.frame = smpl.unwrap().to_raw_frame();
+                }
+                self.driver
+                    .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
+                self.transfer_count += 1;
+            }
+        }
+    }
+
+    /// Write one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To fully transmit the frame, this function need to be continuously called until next
+    /// frame can be written.
+    pub fn write<T: ToRawFrame<STD, FMT>>(&mut self, frame: T) -> nb::Result<(), Infallible> {
+        self.driver.enable();
+        let status = self.driver.status();
+        if status.txe() {
+            // having this check before give a chance to optimizer to remove bound checking on
+            // array access
+            if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                self.transfer_count = 0;
+            }
+            if self.transfer_count == 0 {
+                self.frame = frame.to_raw_frame();
+                self.driver
+                    .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
+                self.transfer_count += 1;
+                return Ok(());
+            } else {
+                self.driver
+                    .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
+                self.transfer_count += 1;
+            }
+        }
+        Err(WouldBlock)
     }
 }
