@@ -200,6 +200,74 @@ impl_to_raw_frame!(
     })
 );
 
+/// Those type can be received
+pub trait FromRawFrame<STD, FMT>
+where
+    (STD, FMT): FrameFormat,
+{
+    fn from_raw_frame(raw: RawFrame<STD, FMT>) -> Self;
+}
+
+/*
+impl FromRawFrame<Philips, Data16Channel16> for (i16,i16) {
+    fn from_raw_frame(raw: [u16;2]) -> Self {
+        (raw[0] as i16, raw[1] as i16)
+    }
+}
+
+impl FromRawFrame<Philips, Data16Channel32> for (i16,i16) {
+    fn from_raw_frame(raw: [u16;2]) -> Self {
+        (raw[0] as i16, raw[1] as i16)
+    }
+}
+*/
+
+macro_rules! impl_from_raw_frame{
+    ($((($type:ty,[$($std:ident),*],$fmt:ident),{$func:item})),*) => {
+        $(
+            $(
+                impl FromRawFrame<$std, $fmt> for $type {
+                    $func
+                }
+            )*
+        )*
+    };
+}
+
+impl_from_raw_frame!(
+    (((i16, i16), [Philips, Msb, Lsb], Data16Channel16), {
+        fn from_raw_frame(raw: [u16; 2]) -> Self {
+            (raw[0] as i16, raw[1] as i16)
+        }
+    }),
+    (((i16, i16), [Philips, Msb, Lsb], Data16Channel32), {
+        fn from_raw_frame(raw: [u16; 2]) -> Self {
+            (raw[0] as i16, raw[1] as i16)
+        }
+    }),
+    (((i32, i32), [Philips, Msb, Lsb], Data32Channel32), {
+        fn from_raw_frame(raw: [u16; 4]) -> Self {
+            let l = (raw[0] as i32) << 16 | raw[1] as i32;
+            let r = (raw[2] as i32) << 16 | raw[3] as i32;
+            (l, r)
+        }
+    }),
+    ((i16, [PcmShortSync, PcmLongSync], Data16Channel16), {
+        fn from_raw_frame(raw: [u16; 1]) -> Self {
+            raw[0] as i16
+        }
+    }),
+    ((i16, [PcmShortSync, PcmLongSync], Data16Channel32), {
+        fn from_raw_frame(raw: [u16; 1]) -> Self {
+            raw[0] as i16
+        }
+    }),
+    ((i32, [PcmShortSync, PcmLongSync], Data32Channel32), {
+        fn from_raw_frame(raw: [u16; 2]) -> Self {
+            (raw[0] as i32) << 16 | raw[1] as i32
+        }
+    })
+);
 #[derive(Debug, Clone, Copy)]
 /// [`I2sTransfer`] configuration.
 ///
@@ -556,6 +624,182 @@ where
                     .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
                 self.transfer_count += 1;
             }
+        }
+        Err(WouldBlock)
+    }
+}
+
+/// Slave Transmit
+impl<I, STD, FMT> I2sTransfer<I, Slave, Transmit, STD, FMT>
+where
+    I: I2sPeripheral,
+    STD: I2sStandard,
+    (STD, FMT): FrameFormat,
+{
+    /// Transmit (blocking) data from an iterator.
+    pub fn write_iter<ITER, T>(&mut self, frames: ITER)
+    where
+        T: ToRawFrame<STD, FMT>,
+        ITER: IntoIterator<Item = T>,
+    {
+        let mut frames = frames.into_iter();
+        loop {
+            if self.sync {
+                let status = self.driver.status();
+                if status.txe() {
+                    // having this check before give a chance to optimizer to remove bound checking on
+                    // array access
+                    if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                        self.transfer_count = 0;
+                    }
+                    if self.transfer_count == 0 {
+                        let frm = frames.next();
+                        //breaking here ensure the last frame is fully transmitted
+                        if frm.is_none() {
+                            break;
+                        }
+                        self.frame = frm.unwrap().to_raw_frame();
+                    }
+                    self.driver
+                        .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
+                    self.transfer_count += 1;
+                }
+                if status.fre() || status.udr() {
+                    self.sync = false;
+                    self.driver.disable();
+                }
+            } else if !self._ws_is_start() {
+                // data register may (or not) already contain data, causing uncertainty about next
+                // time txe flag is set. Writing it remove the uncertainty.
+                let frm = frames.next();
+                //breaking here ensure the last frame is fully transmitted
+                if frm.is_none() {
+                    break;
+                }
+                self.frame = frm.unwrap().to_raw_frame();
+                self.driver.write_data_register(self.frame.as_ref()[0]);
+                self.transfer_count = 1;
+                self.driver.enable();
+                // ensure the ws line didn't change during sync process
+                if !self._ws_is_start() {
+                    self.sync = true;
+                } else {
+                    self.driver.disable();
+                }
+            }
+        }
+    }
+
+    /// Write one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To fully transmit the frame, this function need to be continuously called until next
+    /// frame can be written.
+    pub fn write<T: ToRawFrame<STD, FMT>>(&mut self, frame: T) -> nb::Result<(), Infallible> {
+        if self.sync {
+            let status = self.driver.status();
+            if status.txe() {
+                // having this check before give a chance to optimizer to remove bound checking on
+                // array access
+                if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                    self.transfer_count = 0;
+                }
+                if self.transfer_count == 0 {
+                    self.frame = frame.to_raw_frame();
+                    self.driver
+                        .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
+                    self.transfer_count += 1;
+                    return Ok(());
+                } else {
+                    self.driver
+                        .write_data_register(self.frame.as_ref()[self.transfer_count as usize]);
+                    self.transfer_count += 1;
+                }
+            }
+            if status.fre() || status.udr() {
+                self.sync = false;
+                self.driver.disable();
+            }
+        } else if !self._ws_is_start() {
+            // data register may (or not) already contain data, causing uncertainty about next
+            // time txe flag is set. Writing it remove the uncertainty.
+            self.driver.write_data_register(self.frame.as_ref()[0]);
+            self.transfer_count = 1;
+            self.driver.enable();
+            // ensure the ws line didn't change during sync process
+            if !self._ws_is_start() {
+                self.sync = true;
+            } else {
+                self.driver.disable();
+            }
+            return Ok(());
+        }
+        Err(WouldBlock)
+    }
+}
+
+/// Master Receive
+impl<I, STD, FMT> I2sTransfer<I, Master, Receive, STD, FMT>
+where
+    I: I2sPeripheral,
+    (STD, FMT): FrameFormat,
+{
+    /// Read samples while predicate return `true`.
+    ///
+    /// The given closure must not block, otherwise communication problems may occur.
+    pub fn read_while<F, T>(&mut self, mut predicate: F)
+    where
+        T: FromRawFrame<STD, FMT>,
+        F: FnMut(T) -> bool,
+    {
+        self.driver.enable();
+        loop {
+            let status = self.driver.status();
+            if status.rxne() {
+                if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                    self.transfer_count = 0;
+                }
+                self.frame.as_mut()[self.transfer_count as usize] =
+                    self.driver.read_data_register();
+                self.transfer_count += 1;
+
+                // note: boolean operators are short-circuiting
+                if self.transfer_count >= self.frame.as_ref().len() as u8
+                    && !predicate(T::from_raw_frame(self.frame))
+                {
+                    return;
+                }
+            }
+            if status.ovr() {
+                self.driver.read_data_register();
+                self.driver.status();
+                todo!("better OVR management required")
+            }
+        }
+    }
+
+    /// Read one audio frame. Activate the I2s interface if disabled.
+    ///
+    /// To get the audio frame, this function need to be continuously called until the frame is
+    /// returned
+    pub fn read<T: FromRawFrame<STD, FMT>>(&mut self) -> nb::Result<T, Infallible> {
+        self.driver.enable();
+        let status = self.driver.status();
+        if status.rxne() {
+            if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                self.transfer_count = 0;
+            }
+            self.frame.as_mut()[self.transfer_count as usize] = self.driver.read_data_register();
+            self.transfer_count += 1;
+
+            // note: boolean operators are short-circuiting
+            if self.transfer_count >= self.frame.as_ref().len() as u8 {
+                return Ok(T::from_raw_frame(self.frame));
+            }
+        }
+        if status.ovr() {
+            self.driver.read_data_register();
+            self.driver.status();
+            todo!("better OVR management required")
         }
         Err(WouldBlock)
     }
