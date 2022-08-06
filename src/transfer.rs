@@ -179,7 +179,9 @@ impl I2sTransferConfig<Master, Transmit, Philips, Data16Channel16> {
 
 impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT>
 where
+    STD: I2sStandard,
     FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     /// Create a `I2sTransfer` object around an [`I2sPeripheral`] object.
     ///
@@ -194,7 +196,7 @@ where
         I2sTransfer::<I, MS, TR, STD, FMT> {
             driver,
             frame: Default::default(),
-            frame_state: FrameState::LeftMsb,
+            transfer_count: 0,
             sync: false,
             _fmt: PhantomData,
         }
@@ -345,11 +347,11 @@ use FrameState::*;
 pub struct I2sTransfer<I, MS, TR, STD, FMT>
 where
     I: I2sPeripheral,
-    FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     driver: Driver<I, MS, TR, STD>,
-    frame: FMT::AudioFrame,
-    frame_state: FrameState,
+    frame: RawFrame<STD, FMT>,
+    transfer_count: u8, //track part of the frame we transmitting
     sync: bool,
     _fmt: PhantomData<FMT>,
 }
@@ -358,7 +360,7 @@ impl<I, MS, TR, STD, FMT> I2sTransfer<I, MS, TR, STD, FMT>
 where
     I: I2sPeripheral,
     STD: I2sStandard,
-    FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     /// When `true` the level on WS line make start a slave. The slave must be enabled before this
     /// level is set.
@@ -375,7 +377,9 @@ where
 impl<I, MS, TR, STD, FMT> I2sTransfer<I, MS, TR, STD, FMT>
 where
     I: I2sPeripheral,
+    STD: I2sStandard,
     FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     /// Instantiate and configure an i2s driver around an [`I2sPeripheral`].
     ///
@@ -396,7 +400,7 @@ where
 impl<I, MS, TR, STD, FMT> I2sTransfer<I, MS, TR, STD, FMT>
 where
     I: I2sPeripheral,
-    FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     /// Activate the I2s interface.
     pub fn begin(&mut self) {
@@ -407,13 +411,13 @@ where
 impl<I, TR, STD, FMT> I2sTransfer<I, Slave, TR, STD, FMT>
 where
     I: I2sPeripheral,
-    FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     /// Deactivate the I2s interface and reset internal state
     pub fn end(&mut self) {
         self.driver.disable();
         self.frame = Default::default();
-        self.frame_state = FrameState::LeftMsb;
+        self.transfer_count = 0;
         self.sync = false;
     }
 }
@@ -421,14 +425,14 @@ where
 impl<I, TR, STD, FMT> I2sTransfer<I, Master, TR, STD, FMT>
 where
     I: I2sPeripheral,
-    FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     /// Deactivate the I2s interface and reset internal state
     pub fn end(&mut self) {
         self.driver.disable();
         self.driver.reset_clocks();
         self.frame = Default::default();
-        self.frame_state = FrameState::LeftMsb;
+        self.transfer_count = 0;
         self.sync = false;
     }
 }
@@ -436,757 +440,9 @@ where
 impl<I, TR, STD, FMT> I2sTransfer<I, Master, TR, STD, FMT>
 where
     I: I2sPeripheral,
-    FMT: DataFormat,
+    (STD, FMT): FrameFormat,
 {
     pub fn sample_rate(&self) -> u32 {
         self.driver.sample_rate()
-    }
-}
-
-impl<I, STD, FMT> I2sTransfer<I, Master, Transmit, STD, FMT>
-where
-    I: I2sPeripheral,
-    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
-{
-    /// Transmit (blocking) data from an iterator.
-    pub fn write_iter<ITER>(&mut self, samples: ITER)
-    where
-        ITER: IntoIterator<Item = (i16, i16)>,
-    {
-        let mut samples = samples.into_iter();
-        self.driver.enable();
-        loop {
-            let status = self.driver.status();
-            if status.txe() {
-                let data;
-                match self.frame_state {
-                    LeftMsb => {
-                        let smpl = samples.next();
-                        //breaking here ensure the last frame is fully transmitted
-                        if smpl.is_none() {
-                            break;
-                        }
-                        self.frame = smpl.unwrap();
-                        data = (self.frame.0) as u16;
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        data = (self.frame.1) as u16;
-                        self.frame_state = LeftMsb;
-                    }
-                    _ => unreachable!(),
-                }
-                self.driver.write_data_register(data);
-            }
-        }
-    }
-
-    /// Write one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To fully transmit the frame, this function need to be continuously called until next
-    /// frame can be written.
-    pub fn write(&mut self, frame: (i16, i16)) -> nb::Result<(), Infallible> {
-        self.driver.enable();
-        let status = self.driver.status();
-        if status.txe() {
-            match self.frame_state {
-                LeftMsb => {
-                    self.frame = frame;
-                    let data = (self.frame.0) as u16;
-                    self.driver.write_data_register(data);
-                    self.frame_state = RightMsb;
-                    return Ok(());
-                }
-                RightMsb => {
-                    let data = (self.frame.1) as u16;
-                    self.driver.write_data_register(data);
-                    self.frame_state = LeftMsb;
-                }
-                _ => unreachable!(),
-            }
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD> I2sTransfer<I, Master, Transmit, STD, Data32Channel32>
-where
-    I: I2sPeripheral,
-{
-    /// Transmit (blocking) data from an iterator.
-    pub fn write_iter<ITER>(&mut self, samples: ITER)
-    where
-        ITER: IntoIterator<Item = (i32, i32)>,
-    {
-        let mut samples = samples.into_iter();
-        self.driver.enable();
-        loop {
-            let status = self.driver.status();
-            if status.txe() {
-                let data;
-                match self.frame_state {
-                    LeftMsb => {
-                        let smpl = samples.next();
-                        //breaking here ensure the last frame is fully transmitted
-                        if smpl.is_none() {
-                            break;
-                        }
-                        self.frame = smpl.unwrap();
-                        data = (self.frame.0 as u32 >> 16) as u16;
-                        self.frame_state = LeftLsb;
-                    }
-                    LeftLsb => {
-                        data = (self.frame.0 as u32 & 0xFFFF) as u16;
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        data = (self.frame.1 as u32 >> 16) as u16;
-                        self.frame_state = RightLsb;
-                    }
-                    RightLsb => {
-                        data = (self.frame.1 as u32 & 0xFFFF) as u16;
-                        self.frame_state = LeftMsb;
-                    }
-                }
-                self.driver.write_data_register(data);
-            }
-        }
-    }
-
-    /// Write one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To fully transmit the frame, this function need to be continuously called until next
-    /// frame can be written.
-    pub fn write(&mut self, frame: (i32, i32)) -> nb::Result<(), Infallible> {
-        self.driver.enable();
-        let status = self.driver.status();
-        if status.txe() {
-            match self.frame_state {
-                LeftMsb => {
-                    self.frame = frame;
-                    let data = (self.frame.0 as u32 >> 16) as u16;
-                    self.driver.write_data_register(data);
-                    self.frame_state = LeftLsb;
-                    return Ok(());
-                }
-                LeftLsb => {
-                    let data = (self.frame.0 as u32 & 0xFFFF) as u16;
-                    self.driver.write_data_register(data);
-                    self.frame_state = RightMsb;
-                }
-                RightMsb => {
-                    let data = (self.frame.1 as u32 >> 16) as u16;
-                    self.driver.write_data_register(data);
-                    self.frame_state = RightLsb;
-                }
-                RightLsb => {
-                    let data = (self.frame.1 as u32 & 0xFFFF) as u16;
-                    self.driver.write_data_register(data);
-                    self.frame_state = LeftMsb;
-                }
-            }
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD, FMT> I2sTransfer<I, Slave, Transmit, STD, FMT>
-where
-    I: I2sPeripheral,
-    STD: I2sStandard,
-    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
-{
-    /// Transmit (blocking) data from an iterator.
-    pub fn write_iter<ITER>(&mut self, samples: ITER)
-    where
-        ITER: IntoIterator<Item = (i16, i16)>,
-    {
-        let mut samples = samples.into_iter();
-        loop {
-            if self.sync {
-                let status = self.driver.status();
-                if status.txe() {
-                    let data;
-                    match self.frame_state {
-                        LeftMsb => {
-                            let smpl = samples.next();
-                            //breaking here ensure the last frame is fully transmitted
-                            if smpl.is_none() {
-                                break;
-                            }
-                            self.frame = smpl.unwrap();
-                            data = self.frame.0 as u16;
-                            self.frame_state = RightMsb;
-                        }
-                        RightMsb => {
-                            data = self.frame.1 as u16;
-                            self.frame_state = LeftMsb;
-                        }
-                        _ => unreachable!(),
-                    }
-                    self.driver.write_data_register(data);
-                }
-                if status.fre() || status.udr() {
-                    self.sync = false;
-                    self.driver.disable();
-                }
-            } else if !self._ws_is_start() {
-                // data register may (or not) already contain data, causing uncertainty about next
-                // time txe flag is set. Writing it remove the uncertainty.
-                let smpl = samples.next();
-                //breaking here ensure the last frame is fully transmitted
-                if smpl.is_none() {
-                    break;
-                }
-                self.frame = smpl.unwrap();
-                let data = self.frame.0 as u16;
-                self.driver.write_data_register(data);
-                self.frame_state = RightMsb;
-                self.driver.enable();
-                // ensure the ws line didn't change during sync process
-                if !self._ws_is_start() {
-                    self.sync = true;
-                } else {
-                    self.driver.disable();
-                }
-            }
-        }
-    }
-    /// Write one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To fully transmit the frame, this function need to be continuously called until next
-    /// frame can be written.
-    pub fn write(&mut self, frame: (i16, i16)) -> nb::Result<(), Infallible> {
-        if self.sync {
-            let status = self.driver.status();
-            if status.txe() {
-                match self.frame_state {
-                    LeftMsb => {
-                        self.frame = frame;
-                        let data = self.frame.0 as u16;
-                        self.driver.write_data_register(data);
-                        self.frame_state = RightMsb;
-                        return Ok(());
-                    }
-                    RightMsb => {
-                        let data = self.frame.1 as u16;
-                        self.driver.write_data_register(data);
-                        self.frame_state = LeftMsb;
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            if status.fre() || status.udr() {
-                self.sync = false;
-                self.driver.disable();
-            }
-        } else if !self._ws_is_start() {
-            // data register may (or not) already contain data, causing uncertainty about next
-            // time txe flag is set. Writing it remove the uncertainty.
-            let data = self.frame.0 as u16;
-            self.driver.write_data_register(data);
-            self.frame_state = RightMsb;
-            self.driver.enable();
-            // ensure the ws line didn't change during sync process
-            if !self._ws_is_start() {
-                self.sync = true;
-            } else {
-                self.driver.disable();
-            }
-            return Ok(());
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD> I2sTransfer<I, Slave, Transmit, STD, Data32Channel32>
-where
-    I: I2sPeripheral,
-    STD: I2sStandard,
-{
-    /// Transmit (blocking) data from an iterator.
-    #[inline]
-    pub fn write_iter<ITER>(&mut self, samples: ITER)
-    where
-        ITER: IntoIterator<Item = (i32, i32)>,
-    {
-        let mut samples = samples.into_iter();
-        loop {
-            if self.sync {
-                let status = self.driver.status();
-                if status.txe() {
-                    let data;
-                    match self.frame_state {
-                        LeftMsb => {
-                            let smpl = samples.next();
-                            //breaking here ensure the last frame is fully transmitted
-                            if smpl.is_none() {
-                                break;
-                            }
-                            self.frame = smpl.unwrap();
-                            data = (self.frame.0 as u32 >> 16) as u16;
-                            self.frame_state = LeftLsb;
-                        }
-                        LeftLsb => {
-                            data = (self.frame.0 as u32 & 0xFFFF) as u16;
-                            self.frame_state = RightMsb;
-                        }
-                        RightMsb => {
-                            data = (self.frame.1 as u32 >> 16) as u16;
-                            self.frame_state = RightLsb;
-                        }
-                        RightLsb => {
-                            data = (self.frame.1 as u32 & 0xFFFF) as u16;
-                            self.frame_state = LeftMsb;
-                        }
-                    }
-                    self.driver.write_data_register(data);
-                }
-                if status.fre() || status.udr() {
-                    self.sync = false;
-                    self.driver.disable();
-                }
-            } else if !self._ws_is_start() {
-                // data register may (or not) already contain data, causing uncertainty about next
-                // time txe flag is set. Writing it remove the uncertainty.
-                let smpl = samples.next();
-                //breaking here ensure the last frame is fully transmitted
-                if smpl.is_none() {
-                    break;
-                }
-                self.frame = smpl.unwrap();
-                let data = (self.frame.0 as u32 >> 16) as u16;
-                self.driver.write_data_register(data);
-                self.frame_state = LeftLsb;
-                self.driver.enable();
-                // ensure the ws line didn't change during sync process
-                if !self._ws_is_start() {
-                    self.sync = true;
-                } else {
-                    self.driver.disable();
-                }
-            }
-        }
-    }
-
-    /// Write one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To fully transmit the frame, this function need to be continuously called until next
-    /// frame can be written.
-    pub fn write(&mut self, frame: (i32, i32)) -> nb::Result<(), Infallible> {
-        if self.sync {
-            let status = self.driver.status();
-            if status.txe() {
-                match self.frame_state {
-                    LeftMsb => {
-                        self.frame = frame;
-                        let data = (self.frame.0 as u32 >> 16) as u16;
-                        self.driver.write_data_register(data);
-                        self.frame_state = LeftLsb;
-                        return Ok(());
-                    }
-                    LeftLsb => {
-                        let data = (self.frame.0 as u32 & 0xFFFF) as u16;
-                        self.driver.write_data_register(data);
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        let data = (self.frame.1 as u32 >> 16) as u16;
-                        self.driver.write_data_register(data);
-                        self.frame_state = RightLsb;
-                    }
-                    RightLsb => {
-                        let data = (self.frame.1 as u32 & 0xFFFF) as u16;
-                        self.driver.write_data_register(data);
-                        self.frame_state = LeftMsb;
-                    }
-                }
-            }
-            if status.fre() || status.udr() {
-                self.sync = false;
-                self.driver.disable();
-            }
-        } else if !self._ws_is_start() {
-            // data register may (or not) already contain data, causing uncertainty about next
-            // time txe flag is set. Writing it remove the uncertainty.
-            let data = (self.frame.0 as u32 >> 16) as u16;
-            self.driver.write_data_register(data);
-            self.frame_state = LeftLsb;
-            self.driver.enable();
-            // ensure the ws line didn't change during sync process
-            if !self._ws_is_start() {
-                self.sync = true;
-            } else {
-                self.driver.disable();
-            }
-            return Ok(());
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD, FMT> I2sTransfer<I, Master, Receive, STD, FMT>
-where
-    I: I2sPeripheral,
-    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
-{
-    /// Read samples while predicate return `true`.
-    ///
-    /// The given closure must not block, otherwise communication problems may occur.
-    pub fn read_while<F>(&mut self, mut predicate: F)
-    where
-        F: FnMut((i16, i16)) -> bool,
-    {
-        self.driver.enable();
-        loop {
-            let status = self.driver.status();
-            if status.rxne() {
-                match self.frame_state {
-                    LeftMsb => {
-                        let data = self.driver.read_data_register();
-                        self.frame.0 = data as i16;
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        let data = self.driver.read_data_register();
-                        self.frame.1 = data as i16;
-                        self.frame_state = LeftMsb;
-                        if !predicate(self.frame) {
-                            return;
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            if status.ovr() {
-                self.driver.read_data_register();
-                self.driver.status();
-            }
-        }
-    }
-
-    /// Read one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To get the audio frame, this function need to be continuously called until the frame is
-    /// returned
-    pub fn read(&mut self) -> nb::Result<(i16, i16), Infallible> {
-        self.driver.enable();
-        let status = self.driver.status();
-        if status.rxne() {
-            match self.frame_state {
-                LeftMsb => {
-                    let data = self.driver.read_data_register();
-                    self.frame.0 = data as i16;
-                    self.frame_state = RightMsb;
-                }
-                RightMsb => {
-                    let data = self.driver.read_data_register();
-                    self.frame.1 = data as i16;
-                    self.frame_state = LeftMsb;
-                    return Ok(self.frame);
-                }
-                _ => unreachable!(),
-            }
-        }
-        if status.ovr() {
-            self.driver.read_data_register();
-            self.driver.status();
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD> I2sTransfer<I, Master, Receive, STD, Data32Channel32>
-where
-    I: I2sPeripheral,
-{
-    /// Read samples while predicate return `true`.
-    ///
-    /// The given closure must not block, otherwise communication problems may occur.
-    pub fn read_while<F>(&mut self, mut predicate: F)
-    where
-        F: FnMut((i32, i32)) -> bool,
-    {
-        self.driver.enable();
-        loop {
-            let status = self.driver.status();
-            if status.rxne() {
-                let data = self.driver.read_data_register();
-                match self.frame_state {
-                    LeftMsb => {
-                        self.frame.0 = (data as i32) << 16;
-                        self.frame_state = LeftLsb;
-                    }
-                    LeftLsb => {
-                        self.frame.0 |= data as i32;
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        self.frame.1 = (data as i32) << 16;
-                        self.frame_state = RightLsb;
-                    }
-                    RightLsb => {
-                        self.frame.1 |= data as i32;
-                        self.frame_state = LeftMsb;
-                        if !predicate(self.frame) {
-                            return;
-                        }
-                    }
-                }
-            }
-            if status.ovr() {
-                self.driver.reset_clocks();
-                self.frame_state = LeftMsb;
-            }
-        }
-    }
-
-    /// Read one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To get the audio frame, this function need to be continuously called until the frame is
-    /// returned
-    pub fn read(&mut self) -> nb::Result<(i32, i32), Infallible> {
-        self.driver.enable();
-        let status = self.driver.status();
-        if status.rxne() {
-            let data = self.driver.read_data_register();
-            match self.frame_state {
-                LeftMsb => {
-                    self.frame.0 = (data as i32) << 16;
-                    self.frame_state = LeftLsb;
-                }
-                LeftLsb => {
-                    self.frame.0 |= data as i32;
-                    self.frame_state = RightMsb;
-                }
-                RightMsb => {
-                    self.frame.1 = (data as i32) << 16;
-                    self.frame_state = RightLsb;
-                }
-                RightLsb => {
-                    self.frame.1 |= data as i32;
-                    self.frame_state = LeftMsb;
-                    return Ok(self.frame);
-                }
-            }
-            if status.ovr() {
-                self.driver.reset_clocks();
-                self.frame_state = LeftMsb;
-            }
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD, FMT> I2sTransfer<I, Slave, Receive, STD, FMT>
-where
-    I: I2sPeripheral,
-    STD: I2sStandard,
-    FMT: Data16 + DataFormat<AudioFrame = (i16, i16)>,
-{
-    /// Read samples while predicate return `true`.
-    ///
-    /// The given closure must not block, otherwise communication problems may occur.
-    pub fn read_while<F>(&mut self, mut predicate: F)
-    where
-        F: FnMut((i16, i16)) -> bool,
-    {
-        loop {
-            if self.sync {
-                let status = self.driver.status();
-                if status.rxne() {
-                    let data = self.driver.read_data_register();
-                    match self.frame_state {
-                        LeftMsb => {
-                            self.frame.0 = data as i16;
-                            self.frame_state = RightMsb;
-                        }
-                        RightMsb => {
-                            self.frame.1 = data as i16;
-                            self.frame_state = LeftMsb;
-                            if !predicate(self.frame) {
-                                return;
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                if status.fre() || status.ovr() {
-                    self.sync = false;
-                    self.driver.read_data_register();
-                    self.driver.status();
-                    self.driver.disable();
-                }
-            } else if !self._ws_is_start() {
-                self.frame_state = LeftMsb;
-                self.driver.enable();
-                // ensure the ws line didn't change during sync process
-                if !self._ws_is_start() {
-                    self.sync = true;
-                } else {
-                    self.driver.disable();
-                }
-            }
-        }
-    }
-
-    /// Read one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To get the audio frame, this function need to be continuously called until the frame is
-    /// returned
-    pub fn read(&mut self) -> nb::Result<(i16, i16), Infallible> {
-        if !self.sync {
-            self.driver.disable();
-            self.frame_state = RightMsb;
-        }
-        if self.sync {
-            let status = self.driver.status();
-            if status.rxne() {
-                let data = self.driver.read_data_register();
-                match self.frame_state {
-                    LeftMsb => {
-                        self.frame.0 = data as i16;
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        self.frame.1 = data as i16;
-                        self.frame_state = LeftMsb;
-                        return Ok(self.frame);
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            if status.fre() || status.ovr() {
-                self.sync = false;
-                //self.driver.read_data_register();
-                //self.driver.status();
-                self.driver.disable();
-            }
-        } else if !self._ws_is_start() {
-            self.frame_state = LeftMsb;
-            self.driver.enable();
-            self.driver.read_data_register();
-            self.driver.status();
-            // ensure the ws line didn't change during sync process
-            if !self._ws_is_start() {
-                self.sync = true;
-            } else {
-                self.driver.disable();
-            }
-        }
-        Err(WouldBlock)
-    }
-}
-
-impl<I, STD> I2sTransfer<I, Slave, Receive, STD, Data32Channel32>
-where
-    I: I2sPeripheral,
-    STD: I2sStandard,
-{
-    /// Read samples while predicate return `true`.
-    ///
-    /// The given closure must not block, otherwise communication problems may occur.
-    pub fn read_while<F>(&mut self, mut predicate: F)
-    where
-        F: FnMut((i32, i32)) -> bool,
-    {
-        loop {
-            if self.sync {
-                let status = self.driver.status();
-                if status.rxne() {
-                    let data = self.driver.read_data_register();
-                    match self.frame_state {
-                        LeftMsb => {
-                            self.frame.0 = (data as i32) << 16;
-                            self.frame_state = LeftLsb;
-                        }
-                        LeftLsb => {
-                            self.frame.0 |= data as i32;
-                            self.frame_state = RightMsb;
-                        }
-                        RightMsb => {
-                            self.frame.1 = (data as i32) << 16;
-                            self.frame_state = RightLsb;
-                        }
-                        RightLsb => {
-                            self.frame.1 |= data as i32;
-                            self.frame_state = LeftMsb;
-                            if !predicate(self.frame) {
-                                return;
-                            }
-                        }
-                    }
-                }
-                if status.fre() || status.ovr() {
-                    self.sync = false;
-                    self.driver.read_data_register();
-                    self.driver.status();
-                    self.driver.disable();
-                }
-            } else if !self._ws_is_start() {
-                self.frame_state = LeftMsb;
-                self.driver.enable();
-                // ensure the ws line didn't change during sync process
-                if !self._ws_is_start() {
-                    self.sync = true;
-                } else {
-                    self.driver.disable();
-                }
-            }
-        }
-    }
-
-    /// Read one audio frame. Activate the I2s interface if disabled.
-    ///
-    /// To get the audio frame, this function need to be continuously called until the frame is
-    /// returned
-    pub fn read(&mut self) -> nb::Result<(i32, i32), Infallible> {
-        if !self.sync {
-            self.driver.disable();
-            self.frame_state = RightMsb;
-        }
-        if self.sync {
-            let status = self.driver.status();
-            if status.rxne() {
-                let data = self.driver.read_data_register();
-                match self.frame_state {
-                    LeftMsb => {
-                        self.frame.0 = (data as i32) << 16;
-                        self.frame_state = LeftLsb;
-                    }
-                    LeftLsb => {
-                        self.frame.0 |= data as i32;
-                        self.frame_state = RightMsb;
-                    }
-                    RightMsb => {
-                        self.frame.1 = (data as i32) << 16;
-                        self.frame_state = RightLsb;
-                    }
-                    RightLsb => {
-                        self.frame.1 |= data as i32;
-                        self.frame_state = LeftMsb;
-                        return Ok(self.frame);
-                    }
-                }
-            }
-            if status.fre() || status.ovr() {
-                self.sync = false;
-                //self.driver.read_data_register();
-                //self.driver.status();
-                self.driver.disable();
-            }
-        } else if !self._ws_is_start() {
-            self.frame_state = LeftMsb;
-            self.driver.enable();
-            self.driver.read_data_register();
-            self.driver.status();
-            // ensure the ws line didn't change during sync process
-            if !self._ws_is_start() {
-                self.sync = true;
-            } else {
-                self.driver.disable();
-            }
-        }
-        Err(WouldBlock)
     }
 }
