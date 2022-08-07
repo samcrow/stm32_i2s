@@ -179,7 +179,7 @@ enum Frequency {
 
 /// Those thing are not part of the public API but appear on public trait.
 pub(crate) mod private {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     /// I2s standard selection.
     pub enum I2sStandard {
         /// Philips I2S
@@ -314,9 +314,10 @@ fn _set_request_frequency(
     i2s_clock: u32,
     request_freq: u32,
     mclk: bool,
+    std: I2sStandard,
     data_format: DataFormat,
 ) {
-    let coef = _coef(mclk, data_format);
+    let coef = _coef(mclk, std, data_format);
     let division = div_round(i2s_clock, coef * request_freq);
     let (odd, div) = if division < 4 {
         (false, 2)
@@ -334,9 +335,10 @@ fn _set_require_frequency(
     i2s_clock: u32,
     request_freq: u32,
     mclk: bool,
+    std: I2sStandard,
     data_format: DataFormat,
 ) {
-    let coef = _coef(mclk, data_format);
+    let coef = _coef(mclk, std, data_format);
     let division = i2s_clock / (coef * request_freq);
     let rem = i2s_clock / (coef * request_freq);
     if rem == 0 && division >= 4 && division <= 511 {
@@ -349,7 +351,11 @@ fn _set_require_frequency(
 }
 
 // see _set_request_frequency for explanation
-fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
+fn _coef(mclk: bool, std: I2sStandard, data_format: DataFormat) -> u32 {
+    use I2sStandard::*;
+    if std == PcmLongSync || std == PcmShortSync {
+        unimplemented!("clock calculation for PCM not known")
+    }
     if mclk {
         return 256;
     }
@@ -409,6 +415,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
                     driver.i2s_peripheral.i2s_freq(),
                     freq,
                     self.master_clock,
+                    self.standard,
                     self.data_format,
                 ),
                 Frequency::Require(freq) => _set_require_frequency(
@@ -416,6 +423,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
                     driver.i2s_peripheral.i2s_freq(),
                     freq,
                     self.master_clock,
+                    self.standard,
                     self.data_format,
                 ),
             }
@@ -733,6 +741,10 @@ where
     ///
     /// This allow to check deviation with a requested frequency.
     pub fn sample_rate(&self) -> u32 {
+        let is_pcm = self.registers().i2scfgr.read().i2sstd().is_pcm();
+        if is_pcm {
+            unimplemented!("sample rate calculation not known with pcm");
+        }
         let i2spr = self.registers().i2spr.read();
         let mckoe = i2spr.mckoe().bit();
         let odd = i2spr.odd().bit();
