@@ -5,8 +5,7 @@
 //! trait. The job is mainly done by [`I2sTransfer`], a type that wrap an I2sPeripheral to control
 //! it.
 //!
-//! At the moment, transfer is not implemented for 24 bits data and for PCM standard in master
-//! receive mode.
+//! At the moment, transfer is not implemented for 24 bits data.
 //!
 //! # Configure and instantiate transfer.
 //!
@@ -23,10 +22,10 @@
 //! Then you can instantiate the transfer around an `I2sPeripheral`:
 //! ```ignore
 //! // instantiate from configuration
-//! let transfer = transfer_config.i2s_transfer(i2s_peripheral);
+//! let mut transfer = transfer_config.i2s_transfer(i2s_peripheral);
 //!
 //! // alternate way
-//! let transfer = I2sTransfer::new(i2s_peripheral, transfer_config);
+//! let mut transfer = I2sTransfer::new(i2s_peripheral, transfer_config);
 //! ```
 //!
 //! # Transmitting data
@@ -43,18 +42,14 @@
 //! ];
 //!
 //! // Iterator generating audio data for 1 sec (at 48 kHz sampling rate)
-//! let sine_1500_iter = SINE_1500
-//!     .iter()
-//!     .map(|&x| (x, x))
-//!     .cycle()
-//!     .take(48_000 as usize);
+//! let sine_1500_iter = SINE_1500.iter().map(|&x| (x, x)).cycle().take(48_000);
 //!
 //! // write_iter (blocking API)
-//! i2s2_transfer.write_iter(sine_1500_iter.clone());
+//! transfer.write_iter(sine_1500_iter.clone());
 //!
 //! // equivalent using write (non-blocking);
 //! for sample in sine_1500_iter.clone() {
-//!     block!(i2s3_transfer.write(sample)).ok();
+//!     block!(transfer.write(sample)).ok();
 //! }
 //! ```
 //! # Receiving data
@@ -68,7 +63,7 @@
 //! let mut buf_iter = buf.iter_mut().peekable();
 //!
 //! // take left channel data and convert it into 8 bit data (blocking)
-//! transfer.read_while(|s| {
+//! transfer.read_while(|s: (i16, i16)| {
 //!     if let Some(b) = buf_iter.next() {
 //!         *b = (s.0 >> 8) as u8;
 //!     }
@@ -76,9 +71,9 @@
 //! });
 //!
 //! // equivalent with using read (non-blocking API)
-//! for sample in sine_1500_iter.clone() {
-//!     if let Some((l,_)) = block!(i2s3_transfer.read()) {
-//!         *sample = (l >> 8) as u8;
+//! for s in buf.iter_mut() {
+//!     if let Ok((l, _)) = block!(transfer.read()) {
+//!         *s = (l >> 8) as u8;
 //!     }
 //! }
 //! ```
