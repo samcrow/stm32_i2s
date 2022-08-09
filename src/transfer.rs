@@ -105,14 +105,15 @@ use crate::{I2sPeripheral, WsPin};
 
 pub use crate::marker::{self, *};
 
-/// trait to build Frame representation from markers.
+/// Trait to build internal frame representation of `I2sTransfer` from markers.
+#[doc(hidden)]
 pub trait FrameFormat: Sealed {
     /// raw frame representation for transfer implmentation, actual type is always an array of u16
     type RawFrame: Default + Copy + Sync + Send + AsRef<[u16]> + AsMut<[u16]>;
 }
 
-/// Syntax sugar to get appropriate raw frame representation;
-pub type RawFrame<STD, FMT> = <(STD, FMT) as FrameFormat>::RawFrame;
+/// Syntax sugar to get appropriate internal frame representation from markers.
+type RawFrame<STD, FMT> = <(STD, FMT) as FrameFormat>::RawFrame;
 
 macro_rules! impl_frame_format{
     ($(([$($std:ident),*],$fmt:ident,$raw_frame:ty)),*) => {
@@ -137,7 +138,7 @@ impl_frame_format!(
     ([PcmShortSync, PcmLongSync], Data32Channel32, [u16; 2])
 );
 
-/// Those type can be transmitted
+/// Types written to `I2sTransfer`.
 pub trait ToRawFrame<STD, FMT>
 where
     (STD, FMT): FrameFormat,
@@ -189,7 +190,7 @@ impl_to_raw_frame!(
     }
 );
 
-/// Those type can be received
+/// Types read from `I2sTransfer`.
 pub trait FromRawFrame<STD, FMT>
 where
     (STD, FMT): FrameFormat,
@@ -238,6 +239,7 @@ impl_from_raw_frame!(
     }
 );
 
+/// Errors that may require a special handling.
 #[non_exhaustive]
 pub enum I2sTransferError {
     Overrun,
