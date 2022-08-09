@@ -242,6 +242,12 @@ impl_from_raw_frame!(
         (raw[0] as i32) << 16 | raw[1] as i32
     }
 );
+
+#[non_exhaustive]
+pub enum I2sTransferError {
+    Overrun,
+}
+
 #[derive(Debug, Clone, Copy)]
 /// [`I2sTransfer`] configuration.
 ///
@@ -720,7 +726,7 @@ where
     /// Read samples while predicate return `true`.
     ///
     /// The given closure must not block, otherwise communication problems may occur.
-    pub fn read_while<F, T>(&mut self, mut predicate: F)
+    pub fn read_while<F, T>(&mut self, mut predicate: F) -> Result<(), I2sTransferError>
     where
         T: FromRawFrame<STD, FMT>,
         F: FnMut(T) -> bool,
@@ -740,13 +746,12 @@ where
                 if self.transfer_count >= self.frame.as_ref().len() as u8
                     && !predicate(T::from_raw(self.frame))
                 {
-                    return;
+                    return Ok(());
                 }
             }
             if status.ovr() {
-                self.driver.read_data_register();
-                self.driver.status();
-                todo!("better OVR management required")
+                self.end();
+                return Err(I2sTransferError::Overrun);
             }
         }
     }
@@ -755,7 +760,7 @@ where
     ///
     /// To get the audio frame, this function need to be continuously called until the frame is
     /// returned
-    pub fn read<T: FromRawFrame<STD, FMT>>(&mut self) -> nb::Result<T, Infallible> {
+    pub fn read<T: FromRawFrame<STD, FMT>>(&mut self) -> nb::Result<T, I2sTransferError> {
         self.driver.enable();
         let status = self.driver.status();
         if status.rxne() {
@@ -765,15 +770,13 @@ where
             self.frame.as_mut()[self.transfer_count as usize] = self.driver.read_data_register();
             self.transfer_count += 1;
 
-            // note: boolean operators are short-circuiting
             if self.transfer_count >= self.frame.as_ref().len() as u8 {
                 return Ok(T::from_raw(self.frame));
             }
         }
         if status.ovr() {
-            self.driver.read_data_register();
-            self.driver.status();
-            todo!("better OVR management required")
+            self.end();
+            return Err(nb::Error::Other(I2sTransferError::Overrun));
         }
         Err(WouldBlock)
     }
