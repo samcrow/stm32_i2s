@@ -435,11 +435,20 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
 ///
 /// This type is meant to implement the Upcoming I2S embbeded-hal in the future.
 ///
-/// Note: current implementation never fail when an error is detected, it try to recover intead. As
-/// result, data received or transmitted may corrupted. This choice has been made because:
-///  - corrupted data can't produce an invalid value that can cause undefined behavior,
+/// ## Implementation notes
+///
+/// `I2sTransfer` in slave mode never fail when an error is detected, it try to recover instead and
+/// some data may corrupted. This choice has been made because:
+///  - corrupted data can't produce invalid audio values and therefore can't cause undefined
+///  behavior,
 ///  - audio quality is equally degraded by missing or corrupted data,
 ///  - it's easier to use.
+///
+/// `I2sTransfer` in master receive mode fail when an overrun occur. This is because `I2sTransfer` reset
+/// clocks to recover and some device may require to be reset during this process.
+///
+///  `I2sTransfer` in master transmit never fail because the hardware doesn't have error for this
+///  mode.
 pub struct I2sTransfer<I, MS, TR, STD, FMT>
 where
     I: I2sPeripheral,
