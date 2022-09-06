@@ -163,12 +163,6 @@ enum SlaveOrMaster {
     Master,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum TransmitOrReceive {
-    Transmit,
-    Receive,
-}
-
 /// Various ways to specify sampling frequency.
 #[derive(Debug, Clone, Copy)]
 enum Frequency {
@@ -179,6 +173,12 @@ enum Frequency {
 
 /// Those thing are not part of the public API but appear on public trait.
 pub(crate) mod private {
+    #[derive(Debug, Clone, Copy)]
+    pub enum TransmitOrReceive {
+        Transmit,
+        Receive,
+    }
+
     #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     /// I2s standard selection.
     pub enum I2sStandard {
@@ -194,7 +194,7 @@ pub(crate) mod private {
         PcmLongSync,
     }
 }
-pub(crate) use private::I2sStandard;
+pub(crate) use private::{I2sStandard, TransmitOrReceive};
 
 /// Steady state clock polarity
 #[derive(Debug, Clone, Copy)]

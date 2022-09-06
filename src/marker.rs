@@ -68,6 +68,18 @@ impl Sealed for Lsb {}
 impl Sealed for PcmShortSync {}
 impl Sealed for PcmLongSync {}
 
+/// Trait for `Transmit` and `Receive` markers.
+pub trait Direction: Sealed {
+    /// Internal use only (used by configuration types).
+    const VALUE: crate::driver::TransmitOrReceive;
+}
+impl Direction for Transmit {
+    const VALUE: crate::driver::TransmitOrReceive = crate::driver::TransmitOrReceive::Transmit;
+}
+impl Direction for Receive {
+    const VALUE: crate::driver::TransmitOrReceive = crate::driver::TransmitOrReceive::Receive;
+}
+
 /// Trait for marker indicating 16 bits data length, that is `Data16Channel16` and
 /// `Data16Channel32`
 pub trait Data16: Sealed {}
