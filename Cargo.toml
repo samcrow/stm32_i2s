@@ -12,22 +12,3 @@ categories = ["embedded", "hardware-support", "multimedia::audio", "no-std"]
 [dependencies]
 vcell = "0.1.3"
 nb = "1.0.0"
-
-# Dependencies for examples
-[dev-dependencies]
-cortex-m-rt = "0.7"
-nb = "1.0.0"
-
-[dev-dependencies.rtt-target]
-version = "0.3.0"
-features = ["cortex-m"]
-
-[dev-dependencies.panic-rtt-target]
-version = "0.1.1"
-features = ["cortex-m"]
-
-# Needs an unreleased version to set up the I2S clocks correctly, at least until the next version of stm32f4xx-hal
-# after v0.8.3 is released
-[dev-dependencies.stm32f4xx-hal]
-version = "0.13.0"
-features = ["stm32f412", "rt"]
