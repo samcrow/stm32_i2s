@@ -295,14 +295,17 @@ fn _set_prescaler(w: &mut i2spr::W, odd: bool, div: u8) {
 }
 
 // Note, calculation details:
-// Fs = i2s_clock / [256 * ((2 * div) + odd)] when master clock is enabled
-// Fs = i2s_clock / [(channel_length * 2) * ((2 * div) + odd)]` when master clock is disabled
-// channel_length is 16 or 32
+// Fs = i2s_clock / [128 * nb_chan * ((2 * div) + odd)] when master clock is enabled
+// Fs = i2s_clock / [(channel_length * nb_chan) * ((2 * div) + odd)]` when master clock is disabled
+// where:
+//  - nb_chan is 2 with Philips, Msb and LSB standards and 1 with Pcm standards.
+//  - channel_length is 16 or 32
 //
 // can be rewritten as
 // Fs = i2s_clock / (coef * division)
-// where coef is a constant equal to 256, 64 or 32 depending channel length and master clock
-// and where division = (2 * div) + odd
+// where:
+//  - coef is a constant that depends on i2s standard, channel length and master clock
+//  - and where division = (2 * div) + odd
 //
 // Equation can be rewritten as
 // division = i2s_clock/ (coef * Fs)
@@ -353,16 +356,17 @@ fn _set_require_frequency(
 // see _set_request_frequency for explanation
 fn _coef(mclk: bool, std: I2sStandard, data_format: DataFormat) -> u32 {
     use I2sStandard::*;
-    if std == PcmLongSync || std == PcmShortSync {
-        unimplemented!("clock calculation for PCM not known")
-    }
+    let nb_chan = match std {
+        Philips | Msb | Lsb => 2,
+        PcmShortSync | PcmLongSync => 1,
+    };
     if mclk {
-        return 256;
+        return 128 * nb_chan;
     }
     if let DataFormat::Data16Channel16 = data_format {
-        32
+        16 * nb_chan
     } else {
-        64
+        32 * nb_chan
     }
 }
 
