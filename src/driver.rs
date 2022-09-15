@@ -475,7 +475,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
             _std: PhantomData,
         }
     }
-    /// Select the I2s standard to use
+    /// Select the I2s standard to use. Affect the effective sampling frequency
     #[allow(non_camel_case_types)]
     pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sDriverConfig<MS, TR, NEW_STD>
     where
@@ -569,11 +569,15 @@ impl<TR, STD> I2sDriverConfig<Master, TR, STD> {
     /// Configure audio frequency by setting the prescaler with an odd factor and a divider.
     ///
     /// The effective sampling frequency is:
-    ///  - `i2s_clock / [256 * ((2 * div) + odd)]` when master clock is enabled
-    ///  - `i2s_clock / [(channel_length * 2) * ((2 * div) + odd)]` when master clock is disabled
+    /// Fs = `i2s_clock / [128 * nb_chan * ((2 * div) + odd)]` when master clock is enabled
+    /// Fs = `i2s_clock / [(channel_length * nb_chan) * ((2 * div) + odd)]` when master clock is disabled
+    /// where :
+    ///  - `i2s_clock` is I2S clock source frequency
+    ///  - `channel_length` is width in bits of the channel (see [DataFormat])
+    ///  - `nb_chan` is the number of audio channel. This value depends on selected standard:
+    ///    - It's 2 with Philips, Msb and LSB standards
+    ///    - It's 1 with PcmShortSync and PcmLongSync standards.
     ///
-    ///  `i2s_clock` is I2S clock source frequency, and `channel_length` is width in bits of the
-    ///  channel (see [DataFormat])
     ///
     /// This setting only have meaning and can be only set for master.
     ///
