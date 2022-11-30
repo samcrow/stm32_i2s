@@ -48,7 +48,7 @@ use core::marker::PhantomData;
 
 use crate::pac::spi1::RegisterBlock;
 use crate::pac::spi1::{i2spr, sr};
-use crate::I2sPeripheral;
+use crate::{I2sPeripheral, WsPin};
 
 pub use crate::marker::{self, *};
 
@@ -179,7 +179,7 @@ enum Frequency {
 
 /// Those thing are not part of the public API but appear on public trait.
 pub(crate) mod private {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     /// I2s standard selection.
     pub enum I2sStandard {
         /// Philips I2S
@@ -295,14 +295,17 @@ fn _set_prescaler(w: &mut i2spr::W, odd: bool, div: u8) {
 }
 
 // Note, calculation details:
-// Fs = i2s_clock / [256 * ((2 * div) + odd)] when master clock is enabled
-// Fs = i2s_clock / [(channel_length * 2) * ((2 * div) + odd)]` when master clock is disabled
-// channel_length is 16 or 32
+// Fs = i2s_clock / [128 * nb_chan * ((2 * div) + odd)] when master clock is enabled
+// Fs = i2s_clock / [(channel_length * nb_chan) * ((2 * div) + odd)]` when master clock is disabled
+// where:
+//  - nb_chan is 2 with Philips, Msb and LSB standards and 1 with Pcm standards.
+//  - channel_length is 16 or 32
 //
 // can be rewritten as
 // Fs = i2s_clock / (coef * division)
-// where coef is a constant equal to 256, 64 or 32 depending channel length and master clock
-// and where division = (2 * div) + odd
+// where:
+//  - coef is a constant that depends on i2s standard, channel length and master clock
+//  - and where division = (2 * div) + odd
 //
 // Equation can be rewritten as
 // division = i2s_clock/ (coef * Fs)
@@ -314,9 +317,10 @@ fn _set_request_frequency(
     i2s_clock: u32,
     request_freq: u32,
     mclk: bool,
+    std: I2sStandard,
     data_format: DataFormat,
 ) {
-    let coef = _coef(mclk, data_format);
+    let coef = _coef(mclk, std, data_format);
     let division = div_round(i2s_clock, coef * request_freq);
     let (odd, div) = if division < 4 {
         (false, 2)
@@ -334,9 +338,10 @@ fn _set_require_frequency(
     i2s_clock: u32,
     request_freq: u32,
     mclk: bool,
+    std: I2sStandard,
     data_format: DataFormat,
 ) {
-    let coef = _coef(mclk, data_format);
+    let coef = _coef(mclk, std, data_format);
     let division = i2s_clock / (coef * request_freq);
     let rem = i2s_clock / (coef * request_freq);
     if rem == 0 && division >= 4 && division <= 511 {
@@ -349,14 +354,19 @@ fn _set_require_frequency(
 }
 
 // see _set_request_frequency for explanation
-fn _coef(mclk: bool, data_format: DataFormat) -> u32 {
+fn _coef(mclk: bool, std: I2sStandard, data_format: DataFormat) -> u32 {
+    use I2sStandard::*;
+    let nb_chan = match std {
+        Philips | Msb | Lsb => 2,
+        PcmShortSync | PcmLongSync => 1,
+    };
     if mclk {
-        return 256;
+        return 128 * nb_chan;
     }
     if let DataFormat::Data16Channel16 = data_format {
-        32
+        16 * nb_chan
     } else {
-        64
+        32 * nb_chan
     }
 }
 
@@ -409,6 +419,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
                     driver.i2s_peripheral.i2s_freq(),
                     freq,
                     self.master_clock,
+                    self.standard,
                     self.data_format,
                 ),
                 Frequency::Require(freq) => _set_require_frequency(
@@ -416,6 +427,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
                     driver.i2s_peripheral.i2s_freq(),
                     freq,
                     self.master_clock,
+                    self.standard,
                     self.data_format,
                 ),
             }
@@ -463,7 +475,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
             _std: PhantomData,
         }
     }
-    /// Select the I2s standard to use
+    /// Select the I2s standard to use. Affect the effective sampling frequency
     #[allow(non_camel_case_types)]
     pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sDriverConfig<MS, TR, NEW_STD>
     where
@@ -557,11 +569,15 @@ impl<TR, STD> I2sDriverConfig<Master, TR, STD> {
     /// Configure audio frequency by setting the prescaler with an odd factor and a divider.
     ///
     /// The effective sampling frequency is:
-    ///  - `i2s_clock / [256 * ((2 * div) + odd)]` when master clock is enabled
-    ///  - `i2s_clock / [(channel_length * 2) * ((2 * div) + odd)]` when master clock is disabled
+    /// Fs = `i2s_clock / [128 * nb_chan * ((2 * div) + odd)]` when master clock is enabled
+    /// Fs = `i2s_clock / [(channel_length * nb_chan) * ((2 * div) + odd)]` when master clock is disabled
+    /// where :
+    ///  - `i2s_clock` is I2S clock source frequency
+    ///  - `channel_length` is width in bits of the channel (see [DataFormat])
+    ///  - `nb_chan` is the number of audio channel. This value depends on selected standard:
+    ///    - It's 2 with Philips, Msb and LSB standards
+    ///    - It's 1 with PcmShortSync and PcmLongSync standards.
     ///
-    ///  `i2s_clock` is I2S clock source frequency, and `channel_length` is width in bits of the
-    ///  channel (see [DataFormat])
     ///
     /// This setting only have meaning and can be only set for master.
     ///
@@ -627,13 +643,9 @@ where
         config.i2s_driver(i2s_peripheral)
     }
 
-    /// Destroy the driver, release the owned i2s device and reset it's configuration.
-    pub fn release(self) -> I {
-        let registers = self.registers();
-        registers.cr1.reset();
-        registers.cr2.reset();
-        registers.i2scfgr.reset();
-        registers.i2spr.reset();
+    /// Destroy the driver, release and reset the owned i2s device.
+    pub fn release(mut self) -> I {
+        self.i2s_peripheral.rcc_reset();
         self.i2s_peripheral
     }
 
@@ -648,26 +660,18 @@ where
     }
 }
 
+/// Methods avaible in any mode
 impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
 where
     I: I2sPeripheral,
 {
-    /// Get a reference to the underlying i2s device
-    pub fn i2s_peripheral(&self) -> &I {
-        &self.i2s_peripheral
-    }
-
-    /// Get a mutable reference to the underlying i2s device
-    pub fn i2s_peripheral_mut(&mut self) -> &mut I {
-        &mut self.i2s_peripheral
-    }
-
     /// Enable the I2S peripheral.
     pub fn enable(&mut self) {
         self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
     }
 
-    /// Immediately Disable the I2S peripheral.
+    /// Immediately Disable the I2S peripheral. Generated clocks aren't reseted so a call to
+    /// `reset_clocks` may required in master mode.
     ///
     /// It's up to the caller to not disable the peripheral in the middle of a frame.
     pub fn disable(&mut self) {
@@ -675,24 +679,37 @@ where
     }
 
     /// Return `true` if the level on the WS line is high.
+    #[deprecated(
+        since = "0.4.0",
+        note = "may removed in future, use `ws_pin().is_high()` instead"
+    )]
     pub fn ws_is_high(&self) -> bool {
-        self.i2s_peripheral.ws_is_high()
+        self.i2s_peripheral.ws_pin().is_high()
     }
 
     /// Return `true` if the level on the WS line is low.
+    #[deprecated(
+        since = "0.4.0",
+        note = "may removed in future, use `ws_pin().is_low()` instead"
+    )]
     pub fn ws_is_low(&self) -> bool {
-        self.i2s_peripheral.ws_is_low()
+        self.i2s_peripheral.ws_pin().is_low()
     }
 
-    //TODO(maybe) method to get a handle to WS pin. It may useful for setting an interrupt on pin to
-    //synchronise I2s in slave mode
-}
+    /// Get a reference to the WS pin.
+    pub fn ws_pin(&self) -> &I::WsPin {
+        self.i2s_peripheral.ws_pin()
+    }
 
-/// Status
-impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
-where
-    I: I2sPeripheral,
-{
+    /// Get a mutable reference to the WS pin.
+    pub fn ws_pin_mut(&mut self) -> &mut I::WsPin {
+        self.i2s_peripheral.ws_pin_mut()
+    }
+
+    /// Get address of data register for dma setup.
+    pub fn data_register_address(&self) -> u32 {
+        &(self.registers().dr) as *const _ as u32
+    }
     /// Get the content of the status register. It's content may modified during the operation.
     ///
     /// When reading the status register, the hardware may reset some error flag of it. The way
@@ -703,6 +720,51 @@ where
             _ms: PhantomData,
             _tr: PhantomData,
             _std: PhantomData,
+        }
+    }
+}
+
+/// Master only methods
+impl<I, TR, STD> I2sDriver<I, Master, TR, STD>
+where
+    I: I2sPeripheral,
+{
+    /// Reset clocks generated by the peripheral. Also delete status and data registers.
+    ///
+    /// This allow to immediately start a new frame when an error occurred or before enabling again
+    /// the driver.
+    pub fn reset_clocks(&mut self) {
+        let registers = self.registers();
+        let cr2 = registers.cr2.read().bits();
+        let i2scfgr = registers.i2scfgr.read().bits();
+        let i2spr = registers.i2spr.read().bits();
+        self.i2s_peripheral.rcc_reset();
+        let registers = self.registers();
+        registers.cr2.write(|w| unsafe { w.bits(cr2) });
+        registers.i2spr.write(|w| unsafe { w.bits(i2spr) });
+        registers.i2scfgr.write(|w| unsafe { w.bits(i2scfgr) });
+    }
+
+    /// Get the actual sample rate imposed by the driver.
+    ///
+    /// This allow to check deviation with a requested frequency.
+    pub fn sample_rate(&self) -> u32 {
+        let is_pcm = self.registers().i2scfgr.read().i2sstd().is_pcm();
+        if is_pcm {
+            unimplemented!("sample rate calculation not known with pcm");
+        }
+        let i2spr = self.registers().i2spr.read();
+        let mckoe = i2spr.mckoe().bit();
+        let odd = i2spr.odd().bit();
+        let div = i2spr.i2sdiv().bits();
+        let i2s_freq = self.i2s_peripheral.i2s_freq();
+        if mckoe {
+            i2s_freq / (256 * ((2 * div as u32) + odd as u32))
+        } else {
+            match self.registers().i2scfgr.read().chlen().bit() {
+                false => i2s_freq / ((16 * 2) * ((2 * div as u32) + odd as u32)),
+                true => i2s_freq / ((32 * 2) * ((2 * div as u32) + odd as u32)),
+            }
         }
     }
 }
@@ -774,31 +836,6 @@ where
     /// Not available for Master Transmit because no error can occur in this mode.
     pub fn set_error_interrupt(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
-    }
-}
-
-/// Sampling Rate
-impl<I, TR, STD> I2sDriver<I, Master, TR, STD>
-where
-    I: I2sPeripheral,
-{
-    /// Get the actual sample rate imposed by the driver.
-    ///
-    /// This allow to check deviation with a requested frequency.
-    pub fn sample_rate(&self) -> u32 {
-        let i2spr = self.registers().i2spr.read();
-        let mckoe = i2spr.mckoe().bit();
-        let odd = i2spr.odd().bit();
-        let div = i2spr.i2sdiv().bits();
-        let i2s_freq = self.i2s_peripheral.i2s_freq();
-        if mckoe {
-            i2s_freq / (256 * ((2 * div as u32) + odd as u32))
-        } else {
-            match self.registers().i2scfgr.read().chlen().bit() {
-                false => i2s_freq / ((16 * 2) * ((2 * div as u32) + odd as u32)),
-                true => i2s_freq / ((32 * 2) * ((2 * div as u32) + odd as u32)),
-            }
-        }
     }
 }
 
