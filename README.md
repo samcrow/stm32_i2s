@@ -15,7 +15,11 @@ microcontrollers:
 * 2.x.x: H7, MP1
 * 3.x.x: "Most of STM32 devices launched in 2021 or later"
 
-This library currently has code for SPI version 1.2 (STM32F1, STM32F2, STM32F4, STM32L0, and STM32L1).
+Currently, code of this library is focused on SPI version 1.2 (STM32F1,
+STM32F2, STM32F4, STM32L0, and STM32L1). However, SPI version 1.2 and 1.3 don't
+seems to have relevant difference for I2S operation and therefore this library
+may also work with SPI version 1.3 (STM32F0 STM32F3 STM32F7 STM32L4
+STM32L5...).
 
 ## Status
 
