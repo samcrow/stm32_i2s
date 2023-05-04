@@ -75,6 +75,42 @@ pub unsafe trait I2sPeripheral {
     fn rcc_reset(&mut self);
 }
 
+/// An object that can be used for full duplex I2S communication.
+///
+/// This trait is meant to be implemented on a type that represent a device supporting full duplex
+/// I2S operation. This object should be composed of
+///  - A SPI peripheral with I2S support
+///  - The corresponding I2SEXT peripheral
+///  - Pins used by it
+///  - Eventually a clock object (or reference)
+///
+/// # Safety
+///
+/// It is only safe to implement this trait when:
+///
+/// * The implementing type has ownership peripherals, preventing any other accesses to the
+/// register blocks.
+/// * `MAIN_REGISTERS` and `EXT_REGISTERS` are pointers to that peripheral's register blocks and
+/// can be safely accessed  as long as ownership or a borrow of the implementing type is present.
+pub unsafe trait DualI2sPeripheral {
+    type WsPin: WsPin;
+    /// Pointer to the SPI register block
+    const MAIN_REGISTERS: *const ();
+    /// Pointer to the I2SEXT register block
+    const EXT_REGISTERS: *const ();
+    /// Get I2s clock source frequency from the I2s device.
+    ///
+    /// Implementers are allowed to panic in case i2s source frequency is unavailable.
+    fn i2s_freq(&self) -> u32;
+    /// Get a reference to WS pin.
+    fn ws_pin(&self) -> &Self::WsPin;
+    /// Get mutable reference to WS pin;
+    fn ws_pin_mut(&mut self) -> &mut Self::WsPin;
+    /// Reset the peripheral through the rcc register. This must be implemented with atomic
+    /// operation through write to bit band region.
+    fn rcc_reset(&mut self);
+}
+
 /// A pin carrying WS signal from/to an i2s peripheral.
 ///
 /// Implementing this trait means implementing read operation on a pin physically configured in
