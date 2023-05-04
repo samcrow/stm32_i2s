@@ -27,6 +27,7 @@
 //!  sampling_frequency.
 //!
 //! # Issues and limitations
+//! - In master transmit mode, the CHSIDE flag appear to be sporadically wrong, so don't use it.
 //! - depending your chip, data corruptions may occur under some configuration, check datasheet
 //! errata of your chip for more information.
 //!
