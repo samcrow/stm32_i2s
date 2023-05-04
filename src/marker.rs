@@ -54,6 +54,14 @@ pub struct PcmShortSync;
 #[derive(Debug, Clone, Copy)]
 pub struct PcmLongSync;
 
+/// Marker, indicate main part of a dual i2s device.
+#[derive(Debug, Clone, Copy)]
+pub struct Main;
+
+/// Marker, indicate extension part of a dual i2s device.
+#[derive(Debug, Clone, Copy)]
+pub struct Ext;
+
 impl Sealed for Master {}
 impl Sealed for Slave {}
 impl Sealed for Transmit {}
@@ -67,6 +75,8 @@ impl Sealed for Msb {}
 impl Sealed for Lsb {}
 impl Sealed for PcmShortSync {}
 impl Sealed for PcmLongSync {}
+impl Sealed for Main {}
+impl Sealed for Ext {}
 
 /// Trait for `Transmit` and `Receive` markers.
 pub trait Direction: Sealed {
