@@ -1408,7 +1408,10 @@ where
 }
 
 #[allow(non_camel_case_types)]
-impl<I, MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD> {
+impl<I, MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD>
+where
+    I: DualI2sPeripheral,
+{
     /// Get a mutable handle to the main part
     pub fn main(&mut self) -> &mut I2sCore<I, Main, MS, MAIN_DIR, STD> {
         &mut self.main
@@ -1416,6 +1419,15 @@ impl<I, MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD>
     ///Get a handle to the extension part
     pub fn ext(&mut self) -> &mut I2sCore<I, Ext, Slave, EXT_DIR, STD> {
         &mut self.ext
+    }
+    /// Get a reference to the WS pin.
+    pub fn ws_pin(&self) -> &I::WsPin {
+        self.dual_i2s_peripheral.ws_pin()
+    }
+
+    /// Get a mutable reference to the WS pin.
+    pub fn ws_pin_mut(&mut self) -> &mut I::WsPin {
+        self.dual_i2s_peripheral.ws_pin_mut()
     }
 }
 
