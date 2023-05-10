@@ -339,6 +339,7 @@ fn _set_request_frequency(
 }
 
 // see _set_request_frequency for explanation
+#[allow(clippy::manual_range_contains)]
 fn _set_require_frequency(
     w: &mut i2spr::W,
     i2s_clock: u32,
