@@ -171,7 +171,7 @@ enum Frequency {
     Require(u32),
 }
 
-/// Those thing are not part of the public API but appear on public trait.
+/// Those thing are not part of the public API but appear on public trait or trait bound.
 pub(crate) mod private {
     #[derive(Debug, Clone, Copy)]
     pub enum TransmitOrReceive {
@@ -193,8 +193,14 @@ pub(crate) mod private {
         /// PCM with long frame synchronisation.
         PcmLongSync,
     }
+
+    /// This trait allow to have generic code for I2sCore.
+    use super::RegisterBlock;
+    pub trait I2sCoreRegisters {
+        fn registers(&self) -> &RegisterBlock;
+    }
 }
-pub(crate) use private::{I2sStandard, TransmitOrReceive};
+pub(crate) use private::{I2sCoreRegisters, I2sStandard, TransmitOrReceive};
 
 /// Steady state clock polarity
 #[derive(Debug, Clone, Copy)]
@@ -1207,11 +1213,6 @@ impl<MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<Master, MAIN_DIR, EXT_DIR, STD>
         self.frequency = Frequency::Require(freq);
         self
     }
-}
-
-/// This trait allow to have generic code for I2sCore.
-pub trait I2sCoreRegisters {
-    fn registers(&self) -> &RegisterBlock;
 }
 
 /// Main or extension part of a full duplex I2s devices accessed through a `DualI2sDriver`.
