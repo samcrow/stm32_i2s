@@ -1371,6 +1371,42 @@ pub struct DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD> {
 }
 
 #[allow(non_camel_case_types)]
+/// Constructors and Destructors
+impl<I, MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD>
+where
+    I: DualI2sPeripheral,
+{
+    /// Instantiate an i2s driver from an [`I2sPeripheral`] object and a configuration.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if an exact frequency is required by the configuration and that
+    /// frequency can not be set.
+    pub fn new(
+        dual_i2s_peripheral: I,
+        config: DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD>,
+    ) -> Self {
+        config.dual_i2s_driver(dual_i2s_peripheral)
+    }
+
+    /// Destroy the driver, release and reset the owned i2s device.
+    pub fn release(mut self) -> I {
+        self.dual_i2s_peripheral.rcc_reset();
+        self.dual_i2s_peripheral
+    }
+
+    /// Consume the driver and create a new one with the given configuration.
+    #[allow(non_camel_case_types)]
+    pub fn reconfigure<NEW_MS, NEW_MAIN_DIR, NEW_EXT_DIR, NEW_STD>(
+        self,
+        config: DualI2sDriverConfig<NEW_MS, NEW_MAIN_DIR, NEW_EXT_DIR, NEW_STD>,
+    ) -> DualI2sDriver<I, NEW_MS, NEW_MAIN_DIR, NEW_EXT_DIR, NEW_STD> {
+        let i2s_peripheral = self.dual_i2s_peripheral;
+        config.dual_i2s_driver(i2s_peripheral)
+    }
+}
+
+#[allow(non_camel_case_types)]
 impl<I, MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD> {
     /// Get a mutable handle to the main part
     pub fn main(&mut self) -> &mut I2sCore<I, Main, MS, MAIN_DIR, STD> {
