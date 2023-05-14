@@ -988,10 +988,8 @@ impl<MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD>
         driver.ext.registers().i2scfgr.write(|w| {
             w.i2smod().i2smode();
             match (self.slave_or_master, self.ext_dir) {
-                (SlaveOrMaster::Slave, TransmitOrReceive::Transmit) => w.i2scfg().slave_tx(),
-                (SlaveOrMaster::Slave, TransmitOrReceive::Receive) => w.i2scfg().slave_rx(),
-                (SlaveOrMaster::Master, TransmitOrReceive::Transmit) => w.i2scfg().master_tx(),
-                (SlaveOrMaster::Master, TransmitOrReceive::Receive) => w.i2scfg().master_rx(),
+                (_, TransmitOrReceive::Transmit) => w.i2scfg().slave_tx(),
+                (_, TransmitOrReceive::Receive) => w.i2scfg().slave_rx(),
             };
             match self.standard {
                 I2sStandard::Philips => w.i2sstd().philips(),
