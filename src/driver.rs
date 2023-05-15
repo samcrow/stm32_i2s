@@ -420,6 +420,23 @@ fn _coef(mclk: bool, std: I2sStandard, data_format: DataFormat) -> u32 {
     }
 }
 
+// sample rate calculation from device information and clock source, see _set_request_frequency for
+// explanation
+fn _sample_rate(registers: &RegisterBlock, i2s_freq: u32) -> u32 {
+    let i2scfgr = registers.i2scfgr.read();
+    let i2spr = registers.i2spr.read();
+    let nb_chan = if i2scfgr.i2sstd().is_pcm() { 1 } else { 2 };
+    let channel_length = if i2scfgr.chlen().bit() { 32 } else { 16 };
+    let mckoe = i2spr.mckoe().bit();
+    let odd = i2spr.odd().bit();
+    let div = i2spr.i2sdiv().bits();
+    if mckoe {
+        i2s_freq / (128 * nb_chan * ((2 * div as u32) + odd as u32))
+    } else {
+        i2s_freq / ((channel_length * nb_chan) * ((2 * div as u32) + odd as u32))
+    }
+}
+
 impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
     /// Instantiate the driver by wrapping the given [`I2sPeripheral`].
     ///
@@ -818,23 +835,7 @@ where
     ///
     /// This allow to check deviation with a requested frequency.
     pub fn sample_rate(&self) -> u32 {
-        let is_pcm = self.registers().i2scfgr.read().i2sstd().is_pcm();
-        if is_pcm {
-            unimplemented!("sample rate calculation not known with pcm");
-        }
-        let i2spr = self.registers().i2spr.read();
-        let mckoe = i2spr.mckoe().bit();
-        let odd = i2spr.odd().bit();
-        let div = i2spr.i2sdiv().bits();
-        let i2s_freq = self.i2s_peripheral.i2s_freq();
-        if mckoe {
-            i2s_freq / (256 * ((2 * div as u32) + odd as u32))
-        } else {
-            match self.registers().i2scfgr.read().chlen().bit() {
-                false => i2s_freq / ((16 * 2) * ((2 * div as u32) + odd as u32)),
-                true => i2s_freq / ((32 * 2) * ((2 * div as u32) + odd as u32)),
-            }
-        }
+        _sample_rate(self.registers(), self.i2s_peripheral.i2s_freq())
     }
 }
 
@@ -1541,23 +1542,7 @@ where
     ///
     /// This allow to check deviation with a requested frequency.
     pub fn sample_rate(&self) -> u32 {
-        let is_pcm = self.main.registers().i2scfgr.read().i2sstd().is_pcm();
-        if is_pcm {
-            unimplemented!("sample rate calculation not known with pcm");
-        }
-        let i2spr = self.main.registers().i2spr.read();
-        let mckoe = i2spr.mckoe().bit();
-        let odd = i2spr.odd().bit();
-        let div = i2spr.i2sdiv().bits();
-        let i2s_freq = self.dual_i2s_peripheral.i2s_freq();
-        if mckoe {
-            i2s_freq / (256 * ((2 * div as u32) + odd as u32))
-        } else {
-            match self.main.registers().i2scfgr.read().chlen().bit() {
-                false => i2s_freq / ((16 * 2) * ((2 * div as u32) + odd as u32)),
-                true => i2s_freq / ((32 * 2) * ((2 * div as u32) + odd as u32)),
-            }
-        }
+        _sample_rate(self.main.registers(), self.dual_i2s_peripheral.i2s_freq())
     }
 }
 
