@@ -3,14 +3,18 @@
 //! (STM32F0 STM32F3 STM32F7 STM32L4 STM32L5)
 //!
 //! This library is normally used through a MCU HAL library providing types that implement
-//! [`I2sPeripheral`]. [`I2sDriver`](driver::I2sDriver) or [`I2sTransfer`](transfer::I2sTransfer)
-//! objects can be created around I2sPeripheral object and used for I2S communication.
+//! [`I2sPeripheral`] or [`DualI2sPeripheral`]. [`I2sDriver`](driver::I2sDriver) or
+//! [`I2sTransfer`](transfer::I2sTransfer) objects can be created around I2sPeripheral object to
+//! have single bus for I2S communication, and [`DualI2sDriver`](driver::DualI2sDriver) object can
+//! be created around DualI2sPeripheral to have 2 audio bus usable for full duplex I2S
+//! communication.
 //!
 //! # For stm32 MCU HAL implementers
 //!
-//! To support I2s by using this library, HAL implementers must implements [`I2sPeripheral`] and
-//! [`WsPin`] trait and reexport this crate. It's also recommended to create some example. For
-//! reference, implementation and examples are (or will be soon) available in stm32f4xx-hal.
+//! To support I2s by using this library, HAL implementers must implements [`I2sPeripheral`],
+//! [`DualI2sPeripheral`] and [`WsPin`] and  trait and reexport this crate. It's also recommended
+//! to create some example. For reference, implementation and examples are (or will be soon)
+//! available in stm32f4xx-hal.
 //!
 //! # For i2s users
 //!
