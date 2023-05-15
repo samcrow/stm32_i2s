@@ -64,23 +64,23 @@ pub enum Channel {
 /// Content of the status register.
 ///
 ///  - `MS`: `Master` or `Slave`
-///  - `TR`: `Transmit` or `Receive`
+///  - `DIR`: communication direction, `Transmit` or `Receive`
 ///  - `STD`: I2S standard, eg `Philips`
-pub struct Status<MS, TR, STD> {
+pub struct Status<MS, DIR, STD> {
     value: sr::R,
     _ms: PhantomData<MS>,
-    _tr: PhantomData<TR>,
+    _tr: PhantomData<DIR>,
     _std: PhantomData<STD>,
 }
 
-impl<MS, TR, STD> Status<MS, TR, STD> {
+impl<MS, DIR, STD> Status<MS, DIR, STD> {
     /// Get the BSY flag. If `true` the I2s device is busy communicating.
     pub fn bsy(&self) -> bool {
         self.value.bsy().bit()
     }
 }
 
-impl<MS, TR, STD> Status<MS, TR, STD>
+impl<MS, DIR, STD> Status<MS, DIR, STD>
 where
     STD: marker::ChannelFlag,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<TR, STD> Status<Slave, TR, STD> {
+impl<DIR, STD> Status<Slave, DIR, STD> {
     /// Get the FRE flag. If `true` a frame error occurred.
     ///
     /// This flag is set by hardware when the WS line change at an unexpected moment. Usually, this
@@ -234,12 +234,12 @@ impl Default for DataFormat {
 /// I2s driver configuration. Can be used as an i2s driver builder.
 ///
 ///  - `MS`: `Master` or `Slave`
-///  - `TR`: `Transmit` or `Receive`
+///  - `DIR`: communication direction, `Transmit` or `Receive`
 ///  - `STD`: I2S standard, eg `Philips`
 ///
 /// **Note:** because of it's typestate, methods of this type don't change variable content, they
 /// return a new value instead.
-pub struct I2sDriverConfig<MS, TR, STD> {
+pub struct I2sDriverConfig<MS, DIR, STD> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,
     standard: I2sStandard,
@@ -249,7 +249,7 @@ pub struct I2sDriverConfig<MS, TR, STD> {
     frequency: Frequency,
 
     _ms: PhantomData<MS>,
-    _tr: PhantomData<TR>,
+    _tr: PhantomData<DIR>,
     _std: PhantomData<STD>,
 }
 
@@ -377,14 +377,14 @@ fn _coef(mclk: bool, std: I2sStandard, data_format: DataFormat) -> u32 {
     }
 }
 
-impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
+impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
     /// Instantiate the driver by wrapping the given [`I2sPeripheral`].
     ///
     /// # Panics
     ///
     /// This method panics if an exact frequency is required and that frequency cannot be set.
-    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, MS, TR, STD> {
-        let driver = I2sDriver::<I, MS, TR, STD> {
+    pub fn i2s_driver<I: I2sPeripheral>(self, i2s_peripheral: I) -> I2sDriver<I, MS, DIR, STD> {
+        let driver = I2sDriver::<I, MS, DIR, STD> {
             i2s_peripheral,
             _ms: PhantomData,
             _tr: PhantomData,
@@ -451,7 +451,7 @@ impl Default for I2sDriverConfig<Slave, Transmit, Philips> {
     }
 }
 
-impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
+impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
     /// Configure driver in transmit mode
     pub fn transmit(self) -> I2sDriverConfig<MS, Transmit, STD> {
         I2sDriverConfig::<MS, Transmit, STD> {
@@ -503,11 +503,11 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
     }
     /// Select the I2s standard to use. Affect the effective sampling frequency
     #[allow(non_camel_case_types)]
-    pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sDriverConfig<MS, TR, NEW_STD>
+    pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sDriverConfig<MS, DIR, NEW_STD>
     where
         NEW_STD: marker::I2sStandard,
     {
-        I2sDriverConfig::<MS, TR, NEW_STD> {
+        I2sDriverConfig::<MS, DIR, NEW_STD> {
             slave_or_master: self.slave_or_master,
             transmit_or_receive: self.transmit_or_receive,
             standard: NEW_STD::VALUE,
@@ -535,7 +535,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
     }
 
     /// Convert to a slave configuration. This delete Master Only Settings.
-    pub fn to_slave(self) -> I2sDriverConfig<Slave, TR, STD> {
+    pub fn to_slave(self) -> I2sDriverConfig<Slave, DIR, STD> {
         let Self {
             transmit_or_receive,
             standard,
@@ -543,7 +543,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
             data_format,
             ..
         } = self;
-        I2sDriverConfig::<Slave, TR, STD> {
+        I2sDriverConfig::<Slave, DIR, STD> {
             slave_or_master: SlaveOrMaster::Slave,
             transmit_or_receive,
             standard,
@@ -558,7 +558,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
     }
 
     /// Convert to a master configuration.
-    pub fn to_master(self) -> I2sDriverConfig<Master, TR, STD> {
+    pub fn to_master(self) -> I2sDriverConfig<Master, DIR, STD> {
         let Self {
             transmit_or_receive,
             standard,
@@ -568,7 +568,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
             frequency,
             ..
         } = self;
-        I2sDriverConfig::<Master, TR, STD> {
+        I2sDriverConfig::<Master, DIR, STD> {
             slave_or_master: SlaveOrMaster::Master,
             transmit_or_receive,
             standard,
@@ -583,7 +583,7 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
     }
 }
 
-impl<TR, STD> I2sDriverConfig<Master, TR, STD> {
+impl<DIR, STD> I2sDriverConfig<Master, DIR, STD> {
     /// Enable/Disable Master Clock. Affect the effective sampling rate.
     ///
     /// This can be only set and only have meaning for Master mode.
@@ -637,14 +637,14 @@ impl<TR, STD> I2sDriverConfig<Master, TR, STD> {
 /// Driver of a SPI peripheral in I2S mode.
 ///
 /// Meant for advanced usage, for example using interrupt or DMA.
-pub struct I2sDriver<I, MS, TR, STD> {
+pub struct I2sDriver<I, MS, DIR, STD> {
     i2s_peripheral: I,
     _ms: PhantomData<MS>,
-    _tr: PhantomData<TR>,
+    _tr: PhantomData<DIR>,
     _std: PhantomData<STD>,
 }
 
-impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
+impl<I, MS, DIR, STD> I2sDriver<I, MS, DIR, STD>
 where
     I: I2sPeripheral,
 {
@@ -655,7 +655,7 @@ where
 }
 
 /// Constructors and Destructors
-impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
+impl<I, MS, DIR, STD> I2sDriver<I, MS, DIR, STD>
 where
     I: I2sPeripheral,
 {
@@ -665,7 +665,7 @@ where
     ///
     /// This method panics if an exact frequency is required by the configuration and that
     /// frequency can not be set.
-    pub fn new(i2s_peripheral: I, config: I2sDriverConfig<MS, TR, STD>) -> Self {
+    pub fn new(i2s_peripheral: I, config: I2sDriverConfig<MS, DIR, STD>) -> Self {
         config.i2s_driver(i2s_peripheral)
     }
 
@@ -677,17 +677,17 @@ where
 
     /// Consume the driver and create a new one with the given configuration.
     #[allow(non_camel_case_types)]
-    pub fn reconfigure<NEW_MS, NEW_TR, NEW_STD>(
+    pub fn reconfigure<NEW_MS, NEW_DIR, NEW_STD>(
         self,
-        config: I2sDriverConfig<NEW_MS, NEW_TR, NEW_STD>,
-    ) -> I2sDriver<I, NEW_MS, NEW_TR, NEW_STD> {
+        config: I2sDriverConfig<NEW_MS, NEW_DIR, NEW_STD>,
+    ) -> I2sDriver<I, NEW_MS, NEW_DIR, NEW_STD> {
         let i2s_peripheral = self.i2s_peripheral;
         config.i2s_driver(i2s_peripheral)
     }
 }
 
 /// Methods avaible in any mode
-impl<I, MS, TR, STD> I2sDriver<I, MS, TR, STD>
+impl<I, MS, DIR, STD> I2sDriver<I, MS, DIR, STD>
 where
     I: I2sPeripheral,
 {
@@ -740,8 +740,8 @@ where
     ///
     /// When reading the status register, the hardware may reset some error flag of it. The way
     /// each flag can be modified is documented on each [Status] flag getter.
-    pub fn status(&mut self) -> Status<MS, TR, STD> {
-        Status::<MS, TR, STD> {
+    pub fn status(&mut self) -> Status<MS, DIR, STD> {
+        Status::<MS, DIR, STD> {
             value: self.registers().sr.read(),
             _ms: PhantomData,
             _tr: PhantomData,
@@ -751,7 +751,7 @@ where
 }
 
 /// Master only methods
-impl<I, TR, STD> I2sDriver<I, Master, TR, STD>
+impl<I, DIR, STD> I2sDriver<I, Master, DIR, STD>
 where
     I: I2sPeripheral,
 {
@@ -853,7 +853,7 @@ where
 }
 
 /// Error interrupt, Slave Mode.
-impl<I, TR, STD> I2sDriver<I, Slave, TR, STD>
+impl<I, DIR, STD> I2sDriver<I, Slave, DIR, STD>
 where
     I: I2sPeripheral,
 {
@@ -1371,7 +1371,7 @@ where
 }
 
 /// Error interrupt, Slave Mode.
-impl<I, PART, TR, STD> I2sCore<I, PART, Slave, TR, STD>
+impl<I, PART, DIR, STD> I2sCore<I, PART, Slave, DIR, STD>
 where
     I: DualI2sPeripheral,
     Self: I2sCoreRegisters,
