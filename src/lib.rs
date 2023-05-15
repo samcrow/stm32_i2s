@@ -18,14 +18,14 @@
 //!
 //! # For i2s users
 //!
-//! You are supposed to use this library throught a MCU HAL. For fine control and advanced usage,
+//! You are supposed to use this library thought a MCU HAL. For fine control and advanced usage,
 //! look [driver] module. For quick and basic usage, look [transfer] module.
 //!
-//! # About Pcm stantards
+//! # About Pcm standards
 //!
-//! Almost all informations you can get about Pcm mode in datasheets are
-//! wrong, or confusing at least. Compared to other modes:
-//!  - Pcm is monophonic, this is why the Channel flag information is meaninless,
+//! Almost all informations you can get about Pcm mode in STM32 datasheets are wrong, or confusing
+//! at least. Compared to other modes:
+//!  - Pcm is monophonic, this is why the Channel flag information is meaningless,
 //!  - With same prescaler configuration, the sampling frequency is twice higher. This is because
 //!  the bitrate is the same with twice less data.
 //!  - When master clock is enabled, it frequency is 128 * sampling_frequency, instead of 256 *
