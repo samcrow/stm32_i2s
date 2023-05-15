@@ -851,8 +851,8 @@ where
 ///
 ///  - `MS`: `Master` or `Slave`. It concern only the "main" part since the extension is always
 ///  slave
-///  - `TR` : tuple of length 2 where each element is `Transmit` or `Receive`. Element `0` is for
-///  the "main" part and element `1` is for extension part
+///  - `MAIN_DIR` and `EXT_DIR` : Communication direction of the main and extension part, can be
+///  `Transmit` or `Receive`.
 ///  - `STD`: I2S standard, eg `Philips`
 ///
 /// **Note:** because of it's typestate, methods of this type don't change variable content, they
@@ -1214,7 +1214,13 @@ impl<MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<Master, MAIN_DIR, EXT_DIR, STD>
     }
 }
 
-/// Main or extension part of a full duplex I2s devices accessed through a `DualI2sDriver`.
+/// Main or extension part of a `DualI2sDriver`.
+///
+///  - `I`: The [DualI2sPeripheral] controlled by the I2sCore.
+///  - `PART`: `Main` or `Ext`. The part of [DualI2sPeripheral] controlled by I2sCore.
+///  - `MS`: `Master` or `Slave`. The role of the I2sCore. Only a `Main` I2sCore can be Master.
+///  - `DIR` : `Transmit` or `Receive`. Communication direction.
+///  - `STD`: I2S standard, eg `Philips`
 pub struct I2sCore<I, PART, MS, DIR, STD> {
     _dual_i2s_peripheral: PhantomData<I>,
     _part: PhantomData<PART>,
@@ -1361,7 +1367,11 @@ where
 
 /// Driver of a full duplex I2S device.
 ///
-/// Meant for advanced usage, for example using interrupt or DMA.
+///  - `I`: the [DualI2sPeripheral] controlled by the driver.
+///  - `MS`: `Master` or `Slave`. Role of the driver, it mainly concern the "main" part.
+///  - `MAIN_DIR` and `EXT_DIR` : Communication direction of the main and extension part, can be
+///  `Transmit` or `Receive`.
+///  - `STD`: I2S standard, eg `Philips`
 #[allow(non_camel_case_types)]
 pub struct DualI2sDriver<I, MS, MAIN_DIR, EXT_DIR, STD> {
     dual_i2s_peripheral: I,
