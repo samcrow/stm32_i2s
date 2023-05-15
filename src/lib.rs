@@ -1,5 +1,6 @@
-//! This library supports I2S communication for SPI version 1.2 (on STM32F1, STM32F2, STM32F4,
-//! STM32L0, and STM32L1 microcontrollers).
+//! This library supports I2S communication for SPI version 1.2 of STM32 microcontrollers (STM32F1,
+//! STM32F2, STM32F4, STM32L0, and STM32L1). This library may also work with SPI version 1.3
+//! (STM32F0 STM32F3 STM32F7 STM32L4 STM32L5)
 //!
 //! This library is normally used through a MCU HAL library providing types that implement
 //! [`I2sPeripheral`]. [`I2sDriver`](driver::I2sDriver) or [`I2sTransfer`](transfer::I2sTransfer)
