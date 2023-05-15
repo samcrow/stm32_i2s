@@ -482,6 +482,25 @@ impl<MS, TR, STD> I2sDriverConfig<MS, TR, STD> {
             _std: PhantomData,
         }
     }
+    /// Configure driver in receive mode
+    #[allow(non_camel_case_types)]
+    pub fn direction<NEW_DIR>(self, _dir: NEW_DIR) -> I2sDriverConfig<MS, NEW_DIR, STD>
+    where
+        NEW_DIR: marker::Direction,
+    {
+        I2sDriverConfig::<MS, NEW_DIR, STD> {
+            slave_or_master: self.slave_or_master,
+            transmit_or_receive: NEW_DIR::VALUE,
+            standard: self.standard,
+            clock_polarity: self.clock_polarity,
+            data_format: self.data_format,
+            master_clock: self.master_clock,
+            frequency: self.frequency,
+            _ms: PhantomData,
+            _tr: PhantomData,
+            _std: PhantomData,
+        }
+    }
     /// Select the I2s standard to use. Affect the effective sampling frequency
     #[allow(non_camel_case_types)]
     pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sDriverConfig<MS, TR, NEW_STD>
