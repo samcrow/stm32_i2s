@@ -3,16 +3,16 @@
 //! API of this module provides thin abstractions  that try to give access to relevant hardware
 //! details while preventing irrelevant or meaningless operation. This allow precise and concise
 //! control of a SPI/I2S peripheral. It's meant for advanced usage, for example with interrupt or
-//! DMA. The job is mainly done by [`I2sDriver`], a type that wrap an [`I2sPeripheral`] to control
-//! it.
+//! DMA. The job is mainly done by [`I2sDriver`] and [`DualI2sDriver`], type that wrap respectively
+//! an [`I2sPeripheral`] and a [`DualI2sPeripheral`] to control it.
 //!
 //! # Configure and instantiate driver.
 //!
-//! [`I2sDriverConfig`] is used to create configuration of the i2s driver:
+//! [`I2sDriverConfig`] is used to create configuration of a [`I2sDriver`]:
 //! ```no_run
 //! # use stm32_i2s_v12x::driver::*;
 //! let driver_config = I2sDriverConfig::new_master()
-//!     .receive()
+//!     .direction(Receive)
 //!     .standard(Philips)
 //!     .data_format(DataFormat::Data16Channel32)
 //!     .master_clock(true)
@@ -26,14 +26,34 @@
 //! // alternate way
 //! let driver = I2sDriver::new(i2s_peripheral, driver_config);
 //! ```
+//! &nbsp;
+//!
+//! Similarly, [`DualI2sDriverConfig`] is used to create configuration of a [`DualI2sDriver`]:
+//! ```no_run
+//! # use stm32_i2s_v12x::driver::*;
+//! let driver_config = I2sDriverConfig::new_master()
+//!     .direction(Receive, Transmit) // set "main" part to receive and "ext" part to transmit
+//!     .standard(Philips)
+//!     .data_format(DataFormat::Data16Channel32)
+//!     .master_clock(true)
+//!     .request_frequency(48_000);
+//! ```
+//! Then you can instantiate the driver around an `DualI2sPeripheral`:
+//! ```ignore
+//! // instantiate from configuration
+//! let driver = driver_config.dual_i2s_driver(dual_i2s_peripheral);
+//!
+//! // alternate way
+//! let driver = DualI2sDriver::new(dual_i2s_peripheral, driver_config);
+//! ```
 //!
 //! # Usage
 //!
-//! `I2sDriver` actually give direct access to hardware, there isn't concept of audio data with it,
-//! it's up to the user to reconstruct this information by controlling the hardware and using
-//! available informations.
+//! `I2sDriver` and `DualI2sDriver` actually give direct access to hardware, there isn't concept of
+//! audio data with them, it's up to the user to reconstruct this information by controlling the
+//! hardware and using available informations.
 //!
-//! Pseudocode example when driver is configured to receive 16 bit audio data:
+//! Pseudocode example with an [`I2sDriver`] configured to receive 16 bit audio data:
 //! ```ignore
 //! let status = driver.status();
 //! if status.rxne() {
@@ -41,6 +61,29 @@
 //!     match status.chside() {
 //!         Channel::Left => /* `data` contains left channel audio data */,
 //!         Channel::Right => /* `data` contains right channel audio data */,
+//!     }
+//! }
+//! ```
+//! &nbsp;
+//!
+//! With [`DualI2sDriver`], you  control 2 peripheral, a "main" SPI peripheral and a "ext" I2SEXT
+//! peripheral. Many operation are done on that "main" or "ext" parts. The following pseudocode
+//! example explain usage of [`DualI2sDriver`] configured for 16 bit audio data with main part
+//! receiving and ext part transmitting.
+//! ```ignore
+//! let main_status = driver.main().status();
+//! if main_status.rxne() {
+//!     let received_data = driver.main().read_data_register();
+//!     match main_status.chside() {
+//!         Channel::Left => /* `data` contains left channel audio data */,
+//!         Channel::Right => /* `data` contains right channel audio data */,
+//!     }
+//! }
+//! let ext_status = driver.ext().status();
+//! if ext_status.txe() {
+//!     match ext_status.chside() {
+//!         Channel::Left =>driver.ext().write_data_register(left_data),
+//!         Channel::Right =>driver.ext().write_data_register(right_data),
 //!     }
 //! }
 //! ```
