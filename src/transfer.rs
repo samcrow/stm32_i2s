@@ -249,14 +249,14 @@ pub enum I2sTransferError {
 /// [`I2sTransfer`] configuration.
 ///
 ///  - `MS`: `Master` or `Slave`
-///  - `TR`: `Transmit` or `Receive`
+///  - `DIR`: `Transmit` or `Receive`
 ///  - `STD`: I2S standard, eg `Philips`
 ///  - `FMT`: Frame Format marker, eg `Data16Channel16`
 ///
 /// **Note:** because of it's typestate, methods of this type don't change variable content, they
 /// return a new value instead.
-pub struct I2sTransferConfig<MS, TR, STD, FMT> {
-    driver_config: DriverConfig<MS, TR, STD>,
+pub struct I2sTransferConfig<MS, DIR, STD, FMT> {
+    driver_config: DriverConfig<MS, DIR, STD>,
     _fmt: PhantomData<FMT>,
 }
 
@@ -280,7 +280,7 @@ impl I2sTransferConfig<Master, Transmit, Philips, Data16Channel16> {
     }
 }
 
-impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT>
+impl<MS, DIR, STD, FMT> I2sTransferConfig<MS, DIR, STD, FMT>
 where
     STD: I2sStandard,
     FMT: DataFormat,
@@ -294,9 +294,9 @@ where
     pub fn i2s_transfer<I: I2sPeripheral>(
         self,
         i2s_peripheral: I,
-    ) -> I2sTransfer<I, MS, TR, STD, FMT> {
+    ) -> I2sTransfer<I, MS, DIR, STD, FMT> {
         let driver = self.driver_config.i2s_driver(i2s_peripheral);
-        I2sTransfer::<I, MS, TR, STD, FMT> {
+        I2sTransfer::<I, MS, DIR, STD, FMT> {
             driver,
             frame: Default::default(),
             transfer_count: 0,
@@ -313,7 +313,7 @@ impl Default for I2sTransferConfig<Slave, Transmit, Philips, Data16Channel16> {
     }
 }
 
-impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
+impl<MS, DIR, STD, FMT> I2sTransferConfig<MS, DIR, STD, FMT> {
     /// Configure transfert for transmitting data.
     pub fn transmit(self) -> I2sTransferConfig<MS, Transmit, STD, FMT> {
         I2sTransferConfig::<MS, Transmit, STD, FMT> {
@@ -330,18 +330,18 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
     }
     /// Select the I2s standard to use. The parameter is just a marker implementing [`I2sStandard`].
     #[allow(non_camel_case_types)]
-    pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sTransferConfig<MS, TR, NEW_STD, FMT>
+    pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sTransferConfig<MS, DIR, NEW_STD, FMT>
     where
         NEW_STD: marker::I2sStandard,
     {
-        I2sTransferConfig::<MS, TR, NEW_STD, FMT> {
+        I2sTransferConfig::<MS, DIR, NEW_STD, FMT> {
             driver_config: self.driver_config.standard(_standard),
             _fmt: PhantomData,
         }
     }
     /// Select steady state clock polarity
     pub fn clock_polarity(self, polarity: ClockPolarity) -> Self {
-        I2sTransferConfig::<MS, TR, STD, FMT> {
+        I2sTransferConfig::<MS, DIR, STD, FMT> {
             driver_config: self.driver_config.clock_polarity(polarity),
             _fmt: PhantomData,
         }
@@ -349,39 +349,39 @@ impl<MS, TR, STD, FMT> I2sTransferConfig<MS, TR, STD, FMT> {
 
     /// Select data format. The parameter is just a marker implementing [`DataFormat`].
     #[allow(non_camel_case_types)]
-    pub fn data_format<NEW_FMT>(self, _format: NEW_FMT) -> I2sTransferConfig<MS, TR, STD, NEW_FMT>
+    pub fn data_format<NEW_FMT>(self, _format: NEW_FMT) -> I2sTransferConfig<MS, DIR, STD, NEW_FMT>
     where
         NEW_FMT: marker::DataFormat,
     {
-        I2sTransferConfig::<MS, TR, STD, NEW_FMT> {
+        I2sTransferConfig::<MS, DIR, STD, NEW_FMT> {
             driver_config: self.driver_config.data_format(NEW_FMT::VALUE),
             _fmt: PhantomData,
         }
     }
 
     /// Convert to a slave configuration. This delete Master Only Settings.
-    pub fn to_slave(self) -> I2sTransferConfig<Slave, TR, STD, FMT> {
-        I2sTransferConfig::<Slave, TR, STD, FMT> {
+    pub fn to_slave(self) -> I2sTransferConfig<Slave, DIR, STD, FMT> {
+        I2sTransferConfig::<Slave, DIR, STD, FMT> {
             driver_config: self.driver_config.to_slave(),
             _fmt: PhantomData,
         }
     }
 
     /// Convert to a master configuration.
-    pub fn to_master(self) -> I2sTransferConfig<Master, TR, STD, FMT> {
-        I2sTransferConfig::<Master, TR, STD, FMT> {
+    pub fn to_master(self) -> I2sTransferConfig<Master, DIR, STD, FMT> {
+        I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.to_master(),
             _fmt: PhantomData,
         }
     }
 }
 
-impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
+impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
     /// Enable/Disable Master Clock. Affect the effective sampling rate.
     ///
     /// This can be only set and only have meaning for Master mode.
     pub fn master_clock(self, enable: bool) -> Self {
-        I2sTransferConfig::<Master, TR, STD, FMT> {
+        I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.master_clock(enable),
             _fmt: PhantomData,
         }
@@ -403,7 +403,7 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     ///
     /// `div` must be at least 2, otherwise the method panics.
     pub fn prescaler(self, odd: bool, div: u8) -> Self {
-        I2sTransferConfig::<Master, TR, STD, FMT> {
+        I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.prescaler(odd, div),
             _fmt: PhantomData,
         }
@@ -411,7 +411,7 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
 
     /// Request an audio sampling frequency. The effective audio sampling frequency may differ.
     pub fn request_frequency(self, freq: u32) -> Self {
-        I2sTransferConfig::<Master, TR, STD, FMT> {
+        I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.request_frequency(freq),
             _fmt: PhantomData,
         }
@@ -421,7 +421,7 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
     ///
     /// If the required frequency can not bet set, Instantiate a transfer will panics.
     pub fn require_frequency(self, freq: u32) -> Self {
-        I2sTransferConfig::<Master, TR, STD, FMT> {
+        I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.require_frequency(freq),
             _fmt: PhantomData,
         }
@@ -446,19 +446,19 @@ impl<TR, STD, FMT> I2sTransferConfig<Master, TR, STD, FMT> {
 ///
 ///  `I2sTransfer` in master transmit never fail because the hardware doesn't have error for this
 ///  mode.
-pub struct I2sTransfer<I, MS, TR, STD, FMT>
+pub struct I2sTransfer<I, MS, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     (STD, FMT): FrameFormat,
 {
-    driver: Driver<I, MS, TR, STD>,
+    driver: Driver<I, MS, DIR, STD>,
     frame: RawFrame<STD, FMT>,
     transfer_count: u8, //track part of the frame we transmitting
     sync: bool,
     _fmt: PhantomData<FMT>,
 }
 
-impl<I, MS, TR, STD, FMT> I2sTransfer<I, MS, TR, STD, FMT>
+impl<I, MS, DIR, STD, FMT> I2sTransfer<I, MS, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     STD: I2sStandard,
@@ -476,7 +476,7 @@ where
 }
 
 /// Constructors and Destructors
-impl<I, MS, TR, STD, FMT> I2sTransfer<I, MS, TR, STD, FMT>
+impl<I, MS, DIR, STD, FMT> I2sTransfer<I, MS, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     STD: I2sStandard,
@@ -489,7 +489,7 @@ where
     ///
     /// This method panics if an exact frequency is required by the config and that frequency can
     /// not be set.
-    pub fn new(i2s_peripheral: I, config: I2sTransferConfig<MS, TR, STD, FMT>) -> Self {
+    pub fn new(i2s_peripheral: I, config: I2sTransferConfig<MS, DIR, STD, FMT>) -> Self {
         config.i2s_transfer(i2s_peripheral)
     }
 
@@ -499,7 +499,7 @@ where
     }
 }
 
-impl<I, MS, TR, STD, FMT> I2sTransfer<I, MS, TR, STD, FMT>
+impl<I, MS, DIR, STD, FMT> I2sTransfer<I, MS, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     (STD, FMT): FrameFormat,
@@ -510,7 +510,7 @@ where
     }
 }
 
-impl<I, TR, STD, FMT> I2sTransfer<I, Slave, TR, STD, FMT>
+impl<I, DIR, STD, FMT> I2sTransfer<I, Slave, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     (STD, FMT): FrameFormat,
@@ -524,7 +524,7 @@ where
     }
 }
 
-impl<I, TR, STD, FMT> I2sTransfer<I, Master, TR, STD, FMT>
+impl<I, DIR, STD, FMT> I2sTransfer<I, Master, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     (STD, FMT): FrameFormat,
@@ -539,7 +539,7 @@ where
     }
 }
 
-impl<I, TR, STD, FMT> I2sTransfer<I, Master, TR, STD, FMT>
+impl<I, DIR, STD, FMT> I2sTransfer<I, Master, DIR, STD, FMT>
 where
     I: I2sPeripheral,
     (STD, FMT): FrameFormat,

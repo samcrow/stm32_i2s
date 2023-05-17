@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+ - DualI2sDriver allowing to use I2s extension notable for full duplex
+   communication support
+ - direction() function in I2sDriverConfig, for coherence with the new
+   DualI2sDriverConfig
+ - 'Direction' marker trait, implemented on Transmit and Receive marker to
+   allow direction() function to work.
+ - Information about possible SPI v1.3 compatibility in crate documentation
+
+### Fixed
+ - I2sDriver::sampling_rate() was unintentionally left unimplemented for PCM
+   standards
+ - Warning about CHSIDE flag in Master Transmit mode was accidentally removed
+   in v0.4.0
+ - Various errors and typos in documentation.
+
+### Changed
+ -  Generic parameters named '\*TR' are renamed '\*DIR'
+
 ## [v0.4.0 - 2023-04-01(https://github.com/samcrow/stm32_i2s/tree/v0.4.0)
 
 ## Added
