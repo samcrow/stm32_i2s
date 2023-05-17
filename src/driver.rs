@@ -30,7 +30,7 @@
 //! Similarly, [`DualI2sDriverConfig`] is used to create configuration of a [`DualI2sDriver`]:
 //! ```no_run
 //! # use stm32_i2s_v12x::driver::*;
-//! let driver_config = I2sDriverConfig::new_master()
+//! let driver_config = DualI2sDriverConfig::new_master()
 //!     .direction(Receive, Transmit) // set "main" part to receive and "ext" part to transmit
 //!     .standard(Philips)
 //!     .data_format(DataFormat::Data16Channel32)
