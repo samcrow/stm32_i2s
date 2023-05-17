@@ -1,12 +1,12 @@
-//! Types definitions for I2S driver.
+//! Types definitions for I2S drivers
 //!
-//! API of this module provides thin abstractions  that try to give access to relevant hardware
-//! details while preventing irrelevant or meaningless operation. This allow precise and concise
-//! control of a SPI/I2S peripheral. It's meant for advanced usage, for example with interrupt or
-//! DMA. The job is mainly done by [`I2sDriver`] and [`DualI2sDriver`], type that wrap respectively
-//! an [`I2sPeripheral`] and a [`DualI2sPeripheral`] to control it.
+//! This module provides thin abstractions that try to give access to relevant hardware
+//! details while preventing irrelevant or meaningless operations. This allow precise and concise
+//! control of a SPI/I2S peripheral. It's meant for advanced usage, for example with interrupts or
+//! DMA. The job is mainly done by [`I2sDriver`] and [`DualI2sDriver`], types that wrap respectively
+//! an [`I2sPeripheral`] and a [`DualI2sPeripheral`] to control them.
 //!
-//! # Configure and instantiate driver.
+//! # Configure and instantiate driver
 //!
 //! [`I2sDriverConfig`] is used to create configuration of a [`I2sDriver`]:
 //! ```no_run
@@ -26,7 +26,6 @@
 //! // alternate way
 //! let driver = I2sDriver::new(i2s_peripheral, driver_config);
 //! ```
-//! &nbsp;
 //!
 //! Similarly, [`DualI2sDriverConfig`] is used to create configuration of a [`DualI2sDriver`]:
 //! ```no_run
@@ -49,9 +48,9 @@
 //!
 //! # Usage
 //!
-//! `I2sDriver` and `DualI2sDriver` actually give direct access to hardware, there isn't concept of
-//! audio data with them, it's up to the user to reconstruct this information by controlling the
-//! hardware and using available informations.
+//! `I2sDriver` and `DualI2sDriver` actually give direct access to hardware. They don't have the
+//! concept of audio data. It's up to the user to reconstruct this information by controlling the
+//! hardware and using available information.
 //!
 //! Pseudocode example with an [`I2sDriver`] configured to receive 16 bit audio data:
 //! ```ignore
@@ -64,11 +63,10 @@
 //!     }
 //! }
 //! ```
-//! &nbsp;
 //!
-//! With [`DualI2sDriver`], you  control 2 peripheral, a "main" SPI peripheral and a "ext" I2SEXT
-//! peripheral. Many operation are done on that "main" or "ext" parts. The following pseudocode
-//! example explain usage of [`DualI2sDriver`] configured for 16 bit audio data with main part
+//! With [`DualI2sDriver`] you control 2 peripherals, a "main" SPI peripheral and an "ext" I2SEXT
+//! peripheral. Many operations are done on the "main" or "ext" parts. The following pseudocode
+//! example explains usage of [`DualI2sDriver`] configured for 16 bit audio data with main part
 //! receiving and ext part transmitting.
 //! ```ignore
 //! let main_status = driver.main().status();
@@ -127,11 +125,10 @@ impl<MS, DIR, STD> Status<MS, DIR, STD>
 where
     STD: marker::ChannelFlag,
 {
-    /// Get the CHSIDE flag. It indicate the channel has been received or to be transmitted.
+    /// Get the CHSIDE flag. It indicate the channel that has been received or will be transmitted.
     ///
     /// This flag is updated when TXE or RXNE flags are set. This flag is meaningless and therefore
-    /// not reliable is case of error. This flag is not available in PCM standard because it's also
-    /// meaningless in this case.
+    /// not reliable in case of an error. This flag is not meaningful when using the PCM standard.
     pub fn chside(&self) -> Channel {
         match self.value.chside().bit() {
             false => Channel::Left,
@@ -141,10 +138,10 @@ where
 }
 
 impl<DIR, STD> Status<Slave, DIR, STD> {
-    /// Get the FRE flag. If `true` a frame error occurred.
+    /// Get the FRE flag. If `true`, a frame error occurred.
     ///
-    /// This flag is set by hardware when the WS line change at an unexpected moment. Usually, this
-    /// indicate a synchronisation issue. This flag can only be set in Slave mode and therefore can
+    /// This flag is set by hardware when the WS line changes at an unexpected moment. Usually, this
+    /// indicates a synchronisation issue. This flag can only be set in Slave mode and therefore can
     /// only be read in this mode.
     ///
     /// This flag is cleared when reading the status register.
@@ -177,7 +174,7 @@ impl<MS, STD> Status<MS, Receive, STD> {
 }
 
 impl<MS, STD> Status<MS, Transmit, STD> {
-    /// Get the TXE flag. If `true` the Tx buffer is empty and the next data can be loaded into it.
+    /// Get the TXE flag. If `true` the Tx buffer is empty and the next sample can be loaded into it.
     ///
     /// This flag can only happen in transmission mode and therefore can only be read in this mode.
     ///
@@ -274,14 +271,16 @@ impl Default for DataFormat {
 }
 
 #[derive(Debug, Clone, Copy)]
-/// I2s driver configuration. Can be used as an i2s driver builder.
+/// I2S driver configuration
+///
+/// This can be used as an i2s driver builder.
 ///
 ///  - `MS`: `Master` or `Slave`
 ///  - `DIR`: communication direction, `Transmit` or `Receive`
 ///  - `STD`: I2S standard, eg `Philips`
 ///
-/// **Note:** because of it's typestate, methods of this type don't change variable content, they
-/// return a new value instead.
+/// **Note:** because of its typestate, methods of this type don't modify a config object. They
+/// return a new object instead.
 pub struct I2sDriverConfig<MS, DIR, STD> {
     slave_or_master: SlaveOrMaster,
     transmit_or_receive: TransmitOrReceive,
@@ -505,7 +504,9 @@ impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
 }
 
 impl Default for I2sDriverConfig<Slave, Transmit, Philips> {
-    /// Create a default configuration. It correspond to a default slave configuration.
+    /// Create a default configuration.
+    ///
+    /// This is a default slave configuration.
     fn default() -> Self {
         Self::new_slave()
     }
@@ -542,7 +543,7 @@ impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
             _std: PhantomData,
         }
     }
-    /// Configure driver in receive mode
+    /// Configure driver in transmit or receive mode
     #[allow(non_camel_case_types)]
     pub fn direction<NEW_DIR>(self, _dir: NEW_DIR) -> I2sDriverConfig<MS, NEW_DIR, STD>
     where
@@ -561,7 +562,9 @@ impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
             _std: PhantomData,
         }
     }
-    /// Select the I2s standard to use. Affect the effective sampling frequency
+    /// Select the I2s standard to use.
+    ///
+    /// This may change the effective sampling frequency.
     #[allow(non_camel_case_types)]
     pub fn standard<NEW_STD>(self, _standard: NEW_STD) -> I2sDriverConfig<MS, DIR, NEW_STD>
     where
@@ -594,7 +597,9 @@ impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
         self
     }
 
-    /// Convert to a slave configuration. This delete Master Only Settings.
+    /// Convert to a slave configuration.
+    ///
+    /// This deletes Master Only Settings.
     pub fn to_slave(self) -> I2sDriverConfig<Slave, DIR, STD> {
         let Self {
             transmit_or_receive,
@@ -644,9 +649,11 @@ impl<MS, DIR, STD> I2sDriverConfig<MS, DIR, STD> {
 }
 
 impl<DIR, STD> I2sDriverConfig<Master, DIR, STD> {
-    /// Enable/Disable Master Clock. Affect the effective sampling rate.
+    /// Enable/Disable Master Clock.
     ///
-    /// This can be only set and only have meaning for Master mode.
+    /// This changes the effective sampling rate.
+    ///
+    /// This can be only set and only has meaning for Master mode.
     pub fn master_clock(mut self, enable: bool) -> Self {
         self.master_clock = enable;
         self
@@ -665,11 +672,11 @@ impl<DIR, STD> I2sDriverConfig<Master, DIR, STD> {
     ///    - It's 1 with PcmShortSync and PcmLongSync standards.
     ///
     ///
-    /// This setting only have meaning and can be only set for master.
+    /// This setting only has meaning and can be only set for master.
     ///
     /// # Panics
     ///
-    /// `div` must be at least 2, otherwise the method panics.
+    /// `div` must be at least 2, otherwise this function panics.
     pub fn prescaler(mut self, odd: bool, div: u8) -> Self {
         #[allow(clippy::manual_range_contains)]
         if div < 2 {
@@ -679,7 +686,9 @@ impl<DIR, STD> I2sDriverConfig<Master, DIR, STD> {
         self
     }
 
-    /// Request an audio sampling frequency. The effective audio sampling frequency may differ.
+    /// Request an audio sampling frequency.
+    ///
+    /// The actual audio sampling frequency may be different.
     pub fn request_frequency(mut self, freq: u32) -> Self {
         self.frequency = Frequency::Request(freq);
         self
@@ -687,7 +696,7 @@ impl<DIR, STD> I2sDriverConfig<Master, DIR, STD> {
 
     /// Require exactly this audio sampling frequency.
     ///
-    /// If the required frequency can not bet set, Instantiate the driver will panics.
+    /// If the required frequency can not bet set, instantiating the driver will panic.
     pub fn require_frequency(mut self, freq: u32) -> Self {
         self.frequency = Frequency::Require(freq);
         self
@@ -696,7 +705,7 @@ impl<DIR, STD> I2sDriverConfig<Master, DIR, STD> {
 
 /// Driver of a SPI peripheral in I2S mode.
 ///
-/// Meant for advanced usage, for example using interrupt or DMA.
+/// This is meant for advanced usage, for example using interrupt or DMA.
 pub struct I2sDriver<I, MS, DIR, STD> {
     i2s_peripheral: I,
     _ms: PhantomData<MS>,
@@ -724,7 +733,7 @@ where
     /// # Panics
     ///
     /// This method panics if an exact frequency is required by the configuration and that
-    /// frequency can not be set.
+    /// frequency cannot be set.
     pub fn new(i2s_peripheral: I, config: I2sDriverConfig<MS, DIR, STD>) -> Self {
         config.i2s_driver(i2s_peripheral)
     }
@@ -746,7 +755,7 @@ where
     }
 }
 
-/// Methods avaible in any mode
+/// Methods available in any mode
 impl<I, MS, DIR, STD> I2sDriver<I, MS, DIR, STD>
 where
     I: I2sPeripheral,
@@ -756,8 +765,9 @@ where
         self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
     }
 
-    /// Immediately Disable the I2S peripheral. Generated clocks aren't reseted so a call to
-    /// `reset_clocks` may required in master mode.
+    /// Immediately Disable the I2S peripheral.
+    ///
+    /// Generated clocks aren't reset, so a call to `reset_clocks` may be required in master mode.
     ///
     /// It's up to the caller to not disable the peripheral in the middle of a frame.
     pub fn disable(&mut self) {
@@ -792,13 +802,13 @@ where
         self.i2s_peripheral.ws_pin_mut()
     }
 
-    /// Get address of data register for dma setup.
+    /// Get the address of the data register for DMA setup.
     pub fn data_register_address(&self) -> u32 {
         &(self.registers().dr) as *const _ as u32
     }
-    /// Get the content of the status register. It's content may modified during the operation.
+    /// Get the content of the status register. This operation may change the register value.
     ///
-    /// When reading the status register, the hardware may reset some error flag of it. The way
+    /// When reading the status register, the hardware may reset some error flags. The way
     /// each flag can be modified is documented on each [Status] flag getter.
     pub fn status(&mut self) -> Status<MS, DIR, STD> {
         Status::<MS, DIR, STD> {
@@ -810,14 +820,14 @@ where
     }
 }
 
-/// Master only methods
+/// Master-only methods
 impl<I, DIR, STD> I2sDriver<I, Master, DIR, STD>
 where
     I: I2sPeripheral,
 {
-    /// Reset clocks generated by the peripheral. Also delete status and data registers.
+    /// Reset clocks generated by the peripheral, and clear status and data registers.
     ///
-    /// This allow to immediately start a new frame when an error occurred or before enabling again
+    /// This allows immediately starting a new frame when an error occurs or before re-enabling
     /// the driver.
     pub fn reset_clocks(&mut self) {
         let registers = self.registers();
@@ -833,20 +843,20 @@ where
 
     /// Get the actual sample rate imposed by the driver.
     ///
-    /// This allow to check deviation with a requested frequency.
+    /// This allows client code to check deviation from the requested frequency.
     pub fn sample_rate(&self) -> u32 {
         _sample_rate(self.registers(), self.i2s_peripheral.i2s_freq())
     }
 }
 
-/// Transmit only methods
+/// Transmit-only methods
 impl<I, MS, STD> I2sDriver<I, MS, Transmit, STD>
 where
     I: I2sPeripheral,
 {
     /// Write a raw half word to the Tx buffer and delete the TXE flag in status register.
     ///
-    /// It's up to the caller to write the content when it's empty.
+    /// It's up to the caller to write the content when the data register is empty.
     pub fn write_data_register(&mut self, value: u16) {
         self.registers().dr.write(|w| w.dr().bits(value));
     }
@@ -856,13 +866,13 @@ where
         self.registers().cr2.modify(|_, w| w.txeie().bit(enabled))
     }
 
-    /// When set to `true`, a dma request is generated each time the Tx buffer is empty.
+    /// When set to `true`, a DMA request is generated each time the Tx buffer is empty.
     pub fn set_tx_dma(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.txdmaen().bit(enabled))
     }
 }
 
-/// Receive only methods
+/// Receive-only methods
 impl<I, MS, STD> I2sDriver<I, MS, Receive, STD>
 where
     I: I2sPeripheral,
@@ -877,7 +887,7 @@ where
         self.registers().cr2.modify(|_, w| w.rxneie().bit(enabled))
     }
 
-    /// When set to `true`, a dma request is generated each time the Rx buffer contains a new data.
+    /// When set to `true`, a DMA request is generated each time the Rx buffer contains a new data.
     pub fn set_rx_dma(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
     }
@@ -890,7 +900,7 @@ where
 {
     /// When set to `true`, an interrupt is generated each time an error occurs.
     ///
-    /// Not available for Master Transmit because no error can occur in this mode.
+    /// This is not available for Master Transmit because no error can occur in this mode.
     pub fn set_error_interrupt(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
     }
@@ -903,23 +913,23 @@ where
 {
     /// When set to `true`, an interrupt is generated each time an error occurs.
     ///
-    /// Not available for Master Transmit because no error can occur in this mode.
+    /// This is not available for Master Transmit because no error can occur in this mode.
     pub fn set_error_interrupt(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-/// Dual I2s driver configuration. Can be used as an dual i2s driver builder.
+/// Dual I2S driver configuration. This can be used as a dual I2S driver builder.
 ///
-///  - `MS`: `Master` or `Slave`. It concern only the "main" part since the extension is always
+///  - `MS`: `Master` or `Slave`. It applies to the "main" part only since the extension is always
 ///  slave
-///  - `MAIN_DIR` and `EXT_DIR` : Communication direction of the main and extension part, can be
+///  - `MAIN_DIR` and `EXT_DIR` : Communication direction of the main and extension parts; can be
 ///  `Transmit` or `Receive`.
 ///  - `STD`: I2S standard, eg `Philips`
 ///
-/// **Note:** because of it's typestate, methods of this type don't change variable content, they
-/// return a new value instead.
+/// **Note:** because of its typestate, methods of this type don't modify a config object. They
+/// return a new object instead.
 #[allow(non_camel_case_types)]
 pub struct DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD> {
     slave_or_master: SlaveOrMaster,
@@ -1099,7 +1109,7 @@ impl<MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD>
 }
 
 impl Default for DualI2sDriverConfig<Slave, Transmit, Transmit, Philips> {
-    /// Create a default configuration. It correspond to a default slave configuration.
+    /// Create a default configuration. This corresponds to a default slave configuration.
     fn default() -> Self {
         Self::new_slave()
     }
@@ -1159,7 +1169,7 @@ impl<MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD>
         }
     }
     /// Select steady state clock polarity
-    // datasheet don't precise how it affect I2s operation. In particular, this may meaningless for
+    // datasheet doesn't specify how it affect I2s operation. In particular, this may meaningless for
     // slave operation.
     pub fn clock_polarity(mut self, polarity: ClockPolarity) -> Self {
         self.clock_polarity = polarity;
@@ -1167,14 +1177,14 @@ impl<MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD>
     }
 
     /// Select data format
-    // In theory, only channel lengh need to be the same, but handling this detail doesn't worth the
+    // In theory, only channel length needs to be the same, but handling this detail isn't worth the
     // effort.
     pub fn data_format(mut self, format: DataFormat) -> Self {
         self.data_format = format;
         self
     }
 
-    /// Convert to a slave configuration. This delete Master Only Settings.
+    /// Convert to a slave configuration. This deletes Master Only Settings.
     pub fn to_slave(self) -> DualI2sDriverConfig<Slave, MAIN_DIR, EXT_DIR, STD> {
         let Self {
             main_dir,
@@ -1231,15 +1241,17 @@ impl<MS, MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<MS, MAIN_DIR, EXT_DIR, STD>
 
 #[allow(non_camel_case_types)]
 impl<MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<Master, MAIN_DIR, EXT_DIR, STD> {
-    /// Enable/Disable Master Clock generation. This affect the effective sampling rate.
+    /// Enable/Disable Master Clock generation.
     ///
-    /// This can be only set and only have meaning for Master mode.
+    /// This changes the effective sampling rate.
+    ///
+    /// This can be only set and only has meaning for Master mode.
     pub fn master_clock(mut self, enable: bool) -> Self {
         self.master_clock = enable;
         self
     }
 
-    /// Configure audio frequency by setting the prescaler with an odd factor and a divider.
+    /// Configure the audio frequency by setting the prescaler with an odd factor and a divider.
     ///
     /// The effective sampling frequency is:
     ///  - `i2s_clock / [256 * ((2 * div) + odd)]` when master clock is enabled
@@ -1248,11 +1260,11 @@ impl<MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<Master, MAIN_DIR, EXT_DIR, STD>
     ///  `i2s_clock` is I2S clock source frequency, and `channel_length` is width in bits of the
     ///  channel (see [DataFormat])
     ///
-    /// This setting only have meaning and can be only set for master.
+    /// This setting only has meaning and can be only set for master.
     ///
     /// # Panics
     ///
-    /// `div` must be at least 2, otherwise the method panics.
+    /// `div` must be at least 2, otherwise this function panics.
     pub fn prescaler(mut self, odd: bool, div: u8) -> Self {
         #[allow(clippy::manual_range_contains)]
         if div < 2 {
@@ -1262,7 +1274,9 @@ impl<MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<Master, MAIN_DIR, EXT_DIR, STD>
         self
     }
 
-    /// Request an audio sampling frequency. The effective audio sampling frequency may differ.
+    /// Request an audio sampling frequency.
+    ///
+    /// The effective audio sampling frequency may be different.
     pub fn request_frequency(mut self, freq: u32) -> Self {
         self.frequency = Frequency::Request(freq);
         self
@@ -1270,7 +1284,7 @@ impl<MAIN_DIR, EXT_DIR, STD> DualI2sDriverConfig<Master, MAIN_DIR, EXT_DIR, STD>
 
     /// Require exactly this audio sampling frequency.
     ///
-    /// If the required frequency can not bet set, Instantiate the driver will panics.
+    /// If the required frequency can not bet set, instantiating the driver will panic.
     pub fn require_frequency(mut self, freq: u32) -> Self {
         self.frequency = Frequency::Require(freq);
         self
@@ -1328,21 +1342,22 @@ where
         self.registers().i2scfgr.modify(|_, w| w.i2se().enabled());
     }
 
-    /// Immediately Disable the I2S peripheral. Generated clocks aren't reseted so a call to
-    /// `reset_clocks` may required in master mode.
+    /// Immediately Disable the I2S peripheral.
+    ///
+    /// Generated clocks aren't reset, so a call to `reset_clocks` may required in master mode.
     ///
     /// It's up to the caller to not disable the peripheral in the middle of a frame.
     pub fn disable(&mut self) {
         self.registers().i2scfgr.modify(|_, w| w.i2se().disabled());
     }
 
-    /// Get address of data register for dma setup.
+    /// Get address of the data register for DMA setup.
     pub fn data_register_address(&self) -> u32 {
         &(self.registers().dr) as *const _ as u32
     }
-    /// Get the content of the status register. It's content may modified during the operation.
+    /// Get the content of the status register. This operation may change the register content.
     ///
-    /// When reading the status register, the hardware may reset some error flag of it. The way
+    /// When reading the status register, the hardware may reset some error flags. The way
     /// each flag can be modified is documented on each [Status] flag getter.
     pub fn status(&mut self) -> Status<MS, DIR, STD> {
         Status::<MS, DIR, STD> {
@@ -1354,7 +1369,7 @@ where
     }
 }
 
-/// Transmit only methods
+/// Transmit-only methods
 impl<I, PART, MS, STD> I2sCore<I, PART, MS, Transmit, STD>
 where
     I: DualI2sPeripheral,
@@ -1362,7 +1377,7 @@ where
 {
     /// Write a raw half word to the Tx buffer and delete the TXE flag in status register.
     ///
-    /// It's up to the caller to write the content when it's empty.
+    /// It's up to the caller to write the content when the buffer is empty.
     pub fn write_data_register(&mut self, value: u16) {
         self.registers().dr.write(|w| w.dr().bits(value));
     }
@@ -1372,19 +1387,19 @@ where
         self.registers().cr2.modify(|_, w| w.txeie().bit(enabled))
     }
 
-    /// When set to `true`, a dma request is generated each time the Tx buffer is empty.
+    /// When set to `true`, a DMA request is generated each time the Tx buffer is empty.
     pub fn set_tx_dma(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.txdmaen().bit(enabled))
     }
 }
 
-/// Receive only methods
+/// Receive-only methods
 impl<I, PART, MS, STD> I2sCore<I, PART, MS, Receive, STD>
 where
     I: DualI2sPeripheral,
     Self: I2sCoreRegisters,
 {
-    /// Read a raw value from the Rx buffer and delete the RXNE flag in status register.
+    /// Read a raw value from the Rx buffer and clear the RXNE flag in status register.
     pub fn read_data_register(&mut self) -> u16 {
         self.registers().dr.read().dr().bits()
     }
@@ -1394,7 +1409,7 @@ where
         self.registers().cr2.modify(|_, w| w.rxneie().bit(enabled))
     }
 
-    /// When set to `true`, a dma request is generated each time the Rx buffer contains a new data.
+    /// When set to `true`, a DMA request is generated each time the Rx buffer contains a new data.
     pub fn set_rx_dma(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.rxdmaen().bit(enabled))
     }
@@ -1408,7 +1423,7 @@ where
 {
     /// When set to `true`, an interrupt is generated each time an error occurs.
     ///
-    /// Not available for Master Transmit because no error can occur in this mode.
+    /// This is not available for Master Transmit because no error can occur in this mode.
     pub fn set_error_interrupt(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
     }
@@ -1422,7 +1437,7 @@ where
 {
     /// When set to `true`, an interrupt is generated each time an error occurs.
     ///
-    /// Not available for Master Transmit because no error can occur in this mode.
+    /// This is not available for Master Transmit because no error can occur in this mode.
     pub fn set_error_interrupt(&mut self, enabled: bool) {
         self.registers().cr2.modify(|_, w| w.errie().bit(enabled))
     }
@@ -1431,7 +1446,7 @@ where
 /// Driver of a full duplex I2S device.
 ///
 ///  - `I`: the [DualI2sPeripheral] controlled by the driver.
-///  - `MS`: `Master` or `Slave`. Role of the driver, it mainly concern the "main" part.
+///  - `MS`: `Master` or `Slave`. Role of the driver, which mainly applies to the "main" part.
 ///  - `MAIN_DIR` and `EXT_DIR` : Communication direction of the main and extension part, can be
 ///  `Transmit` or `Receive`.
 ///  - `STD`: I2S standard, eg `Philips`
@@ -1452,7 +1467,7 @@ where
     ///
     /// # Panics
     ///
-    /// This method panics if an exact frequency is required by the configuration and that
+    /// This function panics if an exact frequency is required by the configuration and that
     /// frequency can not be set.
     pub fn new(
         dual_i2s_peripheral: I,
@@ -1502,15 +1517,17 @@ where
     }
 }
 
-/// Master only methods
+/// Master-only methods
 #[allow(non_camel_case_types)]
 impl<I, MAIN_DIR, EXT_DIR, STD> DualI2sDriver<I, Master, MAIN_DIR, EXT_DIR, STD>
 where
     I: DualI2sPeripheral,
 {
-    /// Reset clocks generated by the peripheral. Also delete status and data registers.
+    /// Reset clocks generated by the peripheral.
     ///
-    /// This allow to immediately start a new frame when an error occurred or before enabling again
+    /// This also clears the status and data registers.
+    ///
+    /// This allows immediately starting a new frame when an error occurs or before re-enabling
     /// the driver.
     pub fn reset_clocks(&mut self) {
         let main_registers = self.main.registers();
@@ -1540,7 +1557,7 @@ where
 
     /// Get the actual sample rate imposed by the driver.
     ///
-    /// This allow to check deviation with a requested frequency.
+    /// This allows client code to check deviation from the requested frequency.
     pub fn sample_rate(&self) -> u32 {
         _sample_rate(self.main.registers(), self.dual_i2s_peripheral.i2s_freq())
     }

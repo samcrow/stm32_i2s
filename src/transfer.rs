@@ -1,13 +1,13 @@
 //! Abstraction to transfer I2S data.
 //!
-//! API of this module give abstractions allowing to transfer I2S audio data while hiding the
-//! hardware details. This module also have basis to implement the upcoming embedded-hale I2s
-//! trait. The job is mainly done by [`I2sTransfer`], a type that wrap an I2sPeripheral to control
+//! The API of this module allows transferring I2S audio data while hiding the
+//! hardware details. This module also is a basis for implementations of the upcoming embedded-hal I2s
+//! trait. The job is mainly done by [`I2sTransfer`], a type that wraps an I2sPeripheral to control
 //! it.
 //!
-//! At the moment, transfer is not implemented for 24 bits data.
+//! At the moment, transfer is not implemented for 24-bit data.
 //!
-//! # Configure and instantiate transfer.
+//! # Configure and instantiate transfer
 //!
 //! [`I2sTransferConfig`] is used to create configuration of the i2s transfer:
 //! ```no_run
@@ -78,10 +78,10 @@
 //! }
 //! ```
 //!
-//! # Transmit and receive at same time
+//! # Transmit and receive at the same time
 //!
-//! The non-blocking API allow to process transmitting and receiving at same time. However, the
-//! following example require two transfer using same clocks to work correctly:
+//! The non-blocking API allows transmitting and receiving at the same time. However, the
+//! following example requires that both transfers use the same clocks to work correctly:
 //! ```ignore
 //! let mut samples = (0, 0);
 //! loop {
@@ -105,14 +105,16 @@ use crate::{I2sPeripheral, WsPin};
 
 pub use crate::marker::{self, *};
 
-/// Trait to build internal frame representation of `I2sTransfer` from markers.
+/// Trait to build an internal frame representation of an `I2sTransfer` from markers.
 #[doc(hidden)]
 pub trait FrameFormat: Sealed {
-    /// raw frame representation for transfer implmentation, actual type is always an array of u16
+    /// Raw frame representation for transfer implementation
+    ///
+    /// The actual type is always an array of u16
     type RawFrame: Default + Copy + Sync + Send + AsRef<[u16]> + AsMut<[u16]>;
 }
 
-/// Syntax sugar to get appropriate internal frame representation from markers.
+/// Syntax sugar to get the appropriate internal frame representation from markers.
 type RawFrame<STD, FMT> = <(STD, FMT) as FrameFormat>::RawFrame;
 
 macro_rules! impl_frame_format{
@@ -253,8 +255,8 @@ pub enum I2sTransferError {
 ///  - `STD`: I2S standard, eg `Philips`
 ///  - `FMT`: Frame Format marker, eg `Data16Channel16`
 ///
-/// **Note:** because of it's typestate, methods of this type don't change variable content, they
-/// return a new value instead.
+/// **Note:** because of its typestate, methods of this type don't modify a config object. They
+/// return a new object instead.
 pub struct I2sTransferConfig<MS, DIR, STD, FMT> {
     driver_config: DriverConfig<MS, DIR, STD>,
     _fmt: PhantomData<FMT>,
@@ -290,7 +292,7 @@ where
     ///
     /// # Panics
     ///
-    /// This method panics if an exact frequency is required  and that frequency can not be set.
+    /// This method panics if an exact frequency is required and that frequency can not be set.
     pub fn i2s_transfer<I: I2sPeripheral>(
         self,
         i2s_peripheral: I,
@@ -307,21 +309,21 @@ where
 }
 
 impl Default for I2sTransferConfig<Slave, Transmit, Philips, Data16Channel16> {
-    /// Create a default configuration. It correspond to a default slave configuration.
+    /// Create a default configuration. This corresponds to a default slave configuration.
     fn default() -> Self {
         Self::new_slave()
     }
 }
 
 impl<MS, DIR, STD, FMT> I2sTransferConfig<MS, DIR, STD, FMT> {
-    /// Configure transfert for transmitting data.
+    /// Configure for transmitting data.
     pub fn transmit(self) -> I2sTransferConfig<MS, Transmit, STD, FMT> {
         I2sTransferConfig::<MS, Transmit, STD, FMT> {
             driver_config: self.driver_config.transmit(),
             _fmt: PhantomData,
         }
     }
-    /// Configure transfer for receiving data.
+    /// Configure for receiving data.
     pub fn receive(self) -> I2sTransferConfig<MS, Receive, STD, FMT> {
         I2sTransferConfig::<MS, Receive, STD, FMT> {
             driver_config: self.driver_config.receive(),
@@ -359,7 +361,9 @@ impl<MS, DIR, STD, FMT> I2sTransferConfig<MS, DIR, STD, FMT> {
         }
     }
 
-    /// Convert to a slave configuration. This delete Master Only Settings.
+    /// Convert to a slave configuration.
+    ///
+    /// This deletes Master Only Settings.
     pub fn to_slave(self) -> I2sTransferConfig<Slave, DIR, STD, FMT> {
         I2sTransferConfig::<Slave, DIR, STD, FMT> {
             driver_config: self.driver_config.to_slave(),
@@ -377,9 +381,11 @@ impl<MS, DIR, STD, FMT> I2sTransferConfig<MS, DIR, STD, FMT> {
 }
 
 impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
-    /// Enable/Disable Master Clock. Affect the effective sampling rate.
+    /// Enable/Disable Master Clock.
     ///
-    /// This can be only set and only have meaning for Master mode.
+    /// This changes the effective sampling rate.
+    ///
+    /// This applies to Master mode only.
     pub fn master_clock(self, enable: bool) -> Self {
         I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.master_clock(enable),
@@ -387,7 +393,7 @@ impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
         }
     }
 
-    /// Configure audio frequency of the transfer by setting the prescaler with an odd factor and a
+    /// Configure audio sample rate of the transfer by setting the prescaler with an odd factor and a
     /// divider.
     ///
     /// The effective sampling frequency is:
@@ -397,7 +403,7 @@ impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
     ///  `i2s_clock` is I2S clock source frequency, and `channel_length` is width in bits of the
     ///  channel (see [DataFormat])
     ///
-    /// This setting only have meaning and can be only set for master.
+    /// This setting applies to Master mode only.
     ///
     /// # Panics
     ///
@@ -409,7 +415,7 @@ impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
         }
     }
 
-    /// Request an audio sampling frequency. The effective audio sampling frequency may differ.
+    /// Request an audio sampling frequency. The effective audio sampling frequency may be different.
     pub fn request_frequency(self, freq: u32) -> Self {
         I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.request_frequency(freq),
@@ -419,7 +425,7 @@ impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
 
     /// Require exactly this audio sampling frequency.
     ///
-    /// If the required frequency can not bet set, Instantiate a transfer will panics.
+    /// If the required frequency can not bet set, instantiating a transfer will panic.
     pub fn require_frequency(self, freq: u32) -> Self {
         I2sTransferConfig::<Master, DIR, STD, FMT> {
             driver_config: self.driver_config.require_frequency(freq),
@@ -428,23 +434,23 @@ impl<DIR, STD, FMT> I2sTransferConfig<Master, DIR, STD, FMT> {
     }
 }
 
-/// Abstraction allowing to transmit/receive I2S data while erasing hardware details.
+/// Abstraction allowing sending and receiving of I2S data while erasing hardware details.
 ///
-/// This type is meant to implement the Upcoming I2S embbeded-hal in the future.
+/// This type is meant to implement the upcoming embeded-hal I2S trait.
 ///
 /// ## Implementation notes
 ///
-/// `I2sTransfer` in slave mode never fail when an error is detected, it try to recover instead and
-/// some data may corrupted. This choice has been made because:
+/// `I2sTransfer` in slave mode never fails when an error is detected. Instead, it tries to recover
+/// although some data may corrupted. This choice has been made because:
 ///  - corrupted data can't produce invalid audio values and therefore can't cause undefined
 ///  behavior,
 ///  - audio quality is equally degraded by missing or corrupted data,
 ///  - it's easier to use.
 ///
-/// `I2sTransfer` in master receive mode fail when an overrun occur. This is because `I2sTransfer` reset
-/// clocks to recover and some device may require to be reset during this process.
+/// `I2sTransfer` in master receive mode fails when an overrun occurs. This is because `I2sTransfer`
+/// resets clocks to recover and some parts of the peripheral need to be reset during this process.
 ///
-///  `I2sTransfer` in master transmit never fail because the hardware doesn't have error for this
+///  `I2sTransfer` in master transmit never fails because the hardware can't detect errors in this
 ///  mode.
 pub struct I2sTransfer<I, MS, DIR, STD, FMT>
 where
@@ -464,8 +470,9 @@ where
     STD: I2sStandard,
     (STD, FMT): FrameFormat,
 {
-    /// When `true` the level on WS line make start a slave. The slave must be enabled before this
-    /// level is set.
+    /// When `true`, the level on WS line is correct for the peripheral to start operating.
+    ///
+    /// The peripheral must be enabled before this level is set.
     #[inline]
     fn _ws_is_start(&self) -> bool {
         match STD::WS_START_LEVEL {
@@ -487,13 +494,13 @@ where
     ///
     /// # Panics
     ///
-    /// This method panics if an exact frequency is required by the config and that frequency can
-    /// not be set.
+    /// This method panics if an exact frequency is required by the config and that frequency
+    /// cannot be set.
     pub fn new(i2s_peripheral: I, config: I2sTransferConfig<MS, DIR, STD, FMT>) -> Self {
         config.i2s_transfer(i2s_peripheral)
     }
 
-    /// Destroy the transfer, release the owned i2s device and reset it's configuration.
+    /// Destroy the transfer, release the owned i2s device, and reset its configuration.
     pub fn release(self) -> I {
         self.driver.release()
     }
@@ -586,9 +593,9 @@ where
         }
     }
 
-    /// Write one audio frame. Activate the I2s interface if disabled.
+    /// Write one audio frame and activate the I2s interface if disabled.
     ///
-    /// To fully transmit the frame, this function need to be continuously called until next
+    /// To fully transmit the frame, this function need to be continuously called until the next
     /// frame can be written.
     pub fn write<T: ToRawFrame<STD, FMT>>(&mut self, frame: T) -> nb::Result<(), Infallible> {
         self.driver.enable();
@@ -676,9 +683,9 @@ where
         }
     }
 
-    /// Write one audio frame. Activate the I2s interface if disabled.
+    /// Write one audio frame and activate the I2s interface if disabled.
     ///
-    /// To fully transmit the frame, this function need to be continuously called until next
+    /// To fully transmit the frame, this function need to be continuously called until the next
     /// frame can be written.
     pub fn write<T: ToRawFrame<STD, FMT>>(&mut self, frame: T) -> nb::Result<(), Infallible> {
         if self.sync {
@@ -762,9 +769,9 @@ where
         }
     }
 
-    /// Read one audio frame. Activate the I2s interface if disabled.
+    /// Read one audio frame and activate the I2s interface if disabled.
     ///
-    /// To get the audio frame, this function need to be continuously called until the frame is
+    /// To get the audio frame, this function needs to be continuously called until the frame is
     /// returned
     pub fn read<T: FromRawFrame<STD, FMT>>(&mut self) -> nb::Result<T, I2sTransferError> {
         self.driver.enable();
@@ -794,7 +801,7 @@ where
     STD: I2sStandard,
     (STD, FMT): FrameFormat,
 {
-    /// Read samples while predicate return `true`.
+    /// Read samples while predicate returns `true`.
     ///
     /// The given closure must not block, otherwise communication problems may occur.
     pub fn read_while<F, T>(&mut self, mut predicate: F)
@@ -839,7 +846,7 @@ where
         }
     }
 
-    /// Read one audio frame. Activate the I2s interface if disabled.
+    /// Read one audio frame and activate the I2s interface if disabled.
     ///
     /// To get the audio frame, this function need to be continuously called until the frame is
     /// returned

@@ -6,12 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.5.0 - 2023-05-16](https://github.com/samcrow/stm32_i2s/tree/v0.5.0)
+
 ### Added
- - DualI2sDriver allowing to use I2s extension notable for full duplex
+ - DualI2sDriver allowing use of the I2s extension peripheral for full duplex
    communication support
- - direction() function in I2sDriverConfig, for coherence with the new
+ - direction() function in I2sDriverConfig, for consistency with the new
    DualI2sDriverConfig
- - 'Direction' marker trait, implemented on Transmit and Receive marker to
+ - 'Direction' marker trait, implemented on Transmit and Receive marker, to
    allow direction() function to work.
  - Information about possible SPI v1.3 compatibility in crate documentation
 
@@ -25,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
  -  Generic parameters named '\*TR' are renamed '\*DIR'
 
-## [v0.4.0 - 2023-04-01(https://github.com/samcrow/stm32_i2s/tree/v0.4.0)
+## [v0.4.0 - 2023-04-01](https://github.com/samcrow/stm32_i2s/tree/v0.4.0)
 
 ## Added
 

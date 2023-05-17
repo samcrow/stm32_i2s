@@ -4,37 +4,37 @@
 //!
 //! This library is normally used through a MCU HAL library providing types that implement
 //! [`I2sPeripheral`] or [`DualI2sPeripheral`]. [`I2sDriver`](driver::I2sDriver) or
-//! [`I2sTransfer`](transfer::I2sTransfer) objects can be created around I2sPeripheral object to
-//! have single bus for I2S communication, and [`DualI2sDriver`](driver::DualI2sDriver) object can
-//! be created around DualI2sPeripheral to have 2 audio bus usable for full duplex I2S
+//! [`I2sTransfer`](transfer::I2sTransfer) objects can be created around I2sPeripheral objects to
+//! have a single bus for I2S communication, and [`DualI2sDriver`](driver::DualI2sDriver) objects can
+//! be created around DualI2sPeripheral for full duplex I2S
 //! communication.
 //!
-//! # For stm32 MCU HAL implementers
+//! # For STM32 MCU HAL implementers
 //!
-//! To support I2s by using this library, HAL implementers must implements [`I2sPeripheral`],
+//! To support I2S by using this library, HAL implementers must implements [`I2sPeripheral`],
 //! [`DualI2sPeripheral`] and [`WsPin`] and  trait and reexport this crate. It's also recommended
-//! to create some example. For reference, implementation and examples are (or will be soon)
-//! available in stm32f4xx-hal.
+//! to create some examples. For reference, implementation and examples are (or will be soon)
+//! available in [stm32f4xx-hal](https://github.com/stm32-rs/stm32f4xx-hal/).
 //!
-//! # For i2s users
+//! # For I2S users
 //!
-//! You are supposed to use this library thought a MCU HAL. For fine control and advanced usage,
-//! look [driver] module. For quick and basic usage, look [transfer] module.
+//! You should use use this library through a MCU HAL. For fine control and advanced usage,
+//! see the [driver] module. For quick and basic usage, see the [transfer] module.
 //!
-//! # About Pcm standards
+//! # About PCM standards
 //!
-//! Almost all informations you can get about Pcm mode in STM32 datasheets are wrong, or confusing
+//! Almost all information you can get about PCM mode in STM32 datasheets are wrong, or confusing
 //! at least. Compared to other modes:
-//!  - Pcm is monophonic, this is why the Channel flag information is meaningless,
-//!  - With same prescaler configuration, the sampling frequency is twice higher. This is because
-//!  the bitrate is the same with twice less data.
-//!  - When master clock is enabled, it frequency is 128 * sampling_frequency, instead of 256 *
+//!  - PCM is monophonic; this is why the Channel flag information is meaningless.
+//!  - With the same prescaler configuration, the sampling frequency is doubled. This is because
+//!  the bit rate is the same with half the samples.
+//!  - When master clock is enabled, its frequency is 128 * sampling_frequency, instead of 256 *
 //!  sampling_frequency.
 //!
 //! # Issues and limitations
-//! - In master transmit mode, the CHSIDE flag appear to be sporadically wrong, so don't use it.
-//! - depending your chip, data corruptions may occur under some configuration, check datasheet
-//! errata of your chip for more information.
+//! - In master transmit mode, the CHSIDE flag appears to be sporadically wrong, so don't use it.
+//! - Depending on your chip, data corruption may occur under some configurations. Check the
+//!   errata of your chip for more information.
 //!
 //!
 #![no_std]
@@ -51,8 +51,8 @@ mod sealed {
 
 /// An object composed of a SPI device that can be used for I2S communication.
 ///
-/// This trait is meant to be implemented on a type that represent a full SPI device, that means an
-/// object composed of a SPI peripheral, pins used by it, and eventually a clock object (can be a
+/// This trait is meant to be implemented on a type that represent a full SPI device. That means an
+/// object composed of a SPI peripheral, pins that it uses, and eventually a clock object (which can be a
 /// reference).
 ///
 /// # Safety
@@ -76,7 +76,7 @@ pub unsafe trait I2sPeripheral {
     /// Get mutable reference to WS pin;
     fn ws_pin_mut(&mut self) -> &mut Self::WsPin;
     /// Reset the peripheral through the rcc register. This must be implemented with atomic
-    /// operation through write to bit band region.
+    /// operations through writes to the bit band region.
     fn rcc_reset(&mut self);
 }
 
@@ -86,14 +86,14 @@ pub unsafe trait I2sPeripheral {
 /// I2S operation. This object should be composed of
 ///  - A SPI peripheral with I2S support
 ///  - The corresponding I2SEXT peripheral
-///  - Pins used by it
+///  - Pins that the peripherals use
 ///  - Eventually a clock object (or reference)
 ///
 /// # Safety
 ///
 /// It is only safe to implement this trait when:
 ///
-/// * The implementing type has ownership peripherals, preventing any other accesses to the
+/// * The implementing type has ownership of the peripherals, preventing any other accesses to the
 /// register blocks.
 /// * `MAIN_REGISTERS` and `EXT_REGISTERS` are pointers to that peripheral's register blocks and
 /// can be safely accessed  as long as ownership or a borrow of the implementing type is present.
@@ -116,7 +116,7 @@ pub unsafe trait DualI2sPeripheral {
     fn rcc_reset(&mut self);
 }
 
-/// A pin carrying WS signal from/to an i2s peripheral.
+/// A pin carrying the WS (word select) signal from/to an i2s peripheral.
 ///
 /// Implementing this trait means implementing read operation on a pin physically configured in
 /// alternate mode.
