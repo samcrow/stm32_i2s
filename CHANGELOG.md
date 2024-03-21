@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.5.1 - 2024-03-21](https://github.com/samcrow/stm32_i2s/tree/v0.5.1)
+
+### Fixed
+ - Fixed incorrect remainder calcuation in require_frequency
+
 ## [v0.5.0 - 2023-05-16](https://github.com/samcrow/stm32_i2s/tree/v0.5.0)
 
 ### Added
