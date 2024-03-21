@@ -392,7 +392,7 @@ fn _set_require_frequency(
 ) {
     let coef = _coef(mclk, std, data_format);
     let division = i2s_clock / (coef * request_freq);
-    let rem = i2s_clock / (coef * request_freq);
+    let rem = i2s_clock % (coef * request_freq);
     if rem == 0 && division >= 4 && division <= 511 {
         let odd = (division & 1) == 1;
         let div = (division >> 1) as u8;
